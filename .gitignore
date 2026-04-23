@@ -1,0 +1,308 @@
+# ---------------------------------------------------------------------------
+# RFWhisper .gitignore
+# Covers: Python, C++ (GR OOT module + native blocks), Rust (optional hot paths),
+# GNU Radio generated files, ONNX model artefacts, audio samples (use LFS),
+# training checkpoints, IDE detritus, per-OS junk, CI outputs, and secrets.
+# ---------------------------------------------------------------------------
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+*.egg
+*.egg-info/
+.eggs/
+
+# Packaging / build
+build/
+dist/
+wheels/
+pip-wheel-metadata/
+pip-log.txt
+pip-delete-this-directory.txt
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+.python-version
+
+# pyenv / poetry / pdm / uv
+.poetry/
+.pdm.toml
+.pdm-python
+.pdm-build/
+poetry.lock.bak
+uv.lock.bak
+
+# Testing / coverage
+.pytest_cache/
+.cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+htmlcov/
+.hypothesis/
+junit*.xml
+.benchmarks/
+nosetests.xml
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+*-checkpoint.ipynb
+
+# Sphinx / docs builds
+docs/_build/
+docs/site/
+site/
+
+# =========================
+# C / C++ (GNU Radio OOT module, native blocks)
+# =========================
+*.o
+*.obj
+*.a
+*.la
+*.lo
+*.lai
+*.slo
+*.ko
+*.dylib
+*.dll
+*.exe
+*.exp
+*.ilk
+*.pdb
+*.idb
+*.out
+*.app
+*.gch
+*.pch
+
+# CMake / build dirs
+build/
+builds/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+Testing/
+CTestTestfile.cmake
+compile_commands.json
+_deps/
+
+# Autotools (in case)
+Makefile.in
+aclocal.m4
+autom4te.cache/
+config.log
+config.status
+configure
+depcomp
+install-sh
+libtool
+ltmain.sh
+missing
+
+# =========================
+# Rust (optional hot paths / tools)
+# =========================
+target/
+Cargo.lock        # (uncomment if this becomes a library; for binaries we keep it)
+!Cargo.lock
+**/*.rs.bk
+
+# =========================
+# GNU Radio
+# =========================
+# GRC generates a .py next to each .grc — we COMMIT generated .py under
+# flowgraphs/ for reproducibility. But ignore editor backups and swap files.
+*.grc~
+*.grc.swp
+*.block.yml.bak
+.grc_gnuradio/
+
+# gr-dnn / ONNX runtime caches
+.ort_cache/
+.onnx_cache/
+
+# =========================
+# Machine learning / models / datasets
+# =========================
+# ONNX models: we ship them via LFS or fetch at runtime. Do not commit raw
+# exports that haven't been signed + SHA-pinned.
+models/**/*.onnx
+models/**/*.pt
+models/**/*.pth
+models/**/*.bin
+models/**/*.safetensors
+models/**/*.ckpt
+!models/**/model-card.md
+!models/**/*.yaml
+!models/**/*.yml
+!models/**/*.json
+
+# Training checkpoints / logs / tensorboards / wandb
+checkpoints/
+runs/
+logs/
+lightning_logs/
+wandb/
+mlruns/
+.neptune/
+.aim/
+tb_logs/
+
+# Datasets (use Git LFS for anything we intentionally ship; ignore everything
+# else that might appear during local training)
+data/
+datasets/
+*.npz
+*.npy
+*.tfrecord
+*.parquet
+*.arrow
+
+# =========================
+# Audio samples (committed via Git LFS only)
+# =========================
+# We DO version control our curated seed samples in samples/ (tracked via LFS).
+# These patterns catch stray recordings outside that directory.
+/*.wav
+/*.flac
+/*.ogg
+/*.mp3
+/*.mp4
+/*.mkv
+/*.aif
+/*.aiff
+/tmp/*.wav
+/scratch/
+scratch-*
+recordings/
+captures/
+*.iq
+*.cfile
+*.sigmf-data
+
+# =========================
+# Benchmark / report outputs
+# =========================
+build/audio-reports/
+build/spectrograms/
+build/latency/
+benchmarks/results/
+report*.json
+report*.html
+*.hdrhist
+
+# =========================
+# Secrets / credentials
+# =========================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.netrc
+.npmrc
+secrets/
+credentials.json
+
+# Notebooks containing API tokens (edit to strip output first)
+*.ipynb.bak
+
+# =========================
+# OS / editor / tooling
+# =========================
+# macOS
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+Icon
+.Spotlight-V100
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# IDEs
+.idea/
+.vscode/
+!.vscode/settings.json.example
+!.vscode/extensions.json.example
+!.vscode/launch.json.example
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+.c9/
+.history/
+*.code-workspace
+.tags
+tags
+TAGS
+GPATH
+GRTAGS
+GTAGS
+
+# Vim / Emacs
+*.swp
+*.swo
+*~
+\#*\#
+.\#*
+
+# Docker
+.docker-build/
+
+# CI local
+act-*/
+
+# =========================
+# Repo-specific artefacts
+# =========================
+.rfwhisper-cache/
+.ortsessions/
+local-config.yaml
