@@ -66,7 +66,7 @@ If you want to do something big, file an issue or start a GitHub Discussion firs
 ### Clone & Install (dev)
 
 ```bash
-git clone https://github.com/rfwhisper/rfwhisper.git
+git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
 git lfs install    # required for samples/ and models/
 

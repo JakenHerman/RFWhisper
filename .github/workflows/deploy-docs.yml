@@ -1,0 +1,166 @@
+name: deploy-docs
+
+# Build and deploy the Docusaurus documentation site at website/ to GitHub Pages.
+# Public URL: https://rfwhisper.org (CNAME file in website/static/CNAME).
+#
+# - On every push to main: rebuild, resync all generated content (README
+#   sections, ROADMAP, GRC → Mermaid, Python docstring API pages), and
+#   publish to gh-pages via the official actions/deploy-pages flow.
+# - On every tagged release (v*.*.*): also run `docusaurus docs:version <tag>`
+#   so release branches get pinned and remain reproducible (the "Next" version
+#   tracks main).
+# - On pull requests: build only (no deploy), to surface broken links, MDX
+#   compile errors, or busted sync scripts before merge.
+#
+# The sync step is the core "never goes stale" mechanism:
+#   website/scripts/sync-all.mjs
+#   └─ sync-readme.mjs       — pulls README sections → docs/_generated/readme-*.md
+#   └─ sync-roadmap.mjs      — mirrors ROADMAP.md with anchors and banners
+#   └─ sync-misc.mjs         — mirrors CONTRIBUTING.md + CODE_OF_CONDUCT.md
+#   └─ grc-to-mermaid.mjs    — extracts every .grc flowgraph → Mermaid + MDX
+#   └─ extract-api-docs.mjs  — emits MDX pages from rfwhisper/ Python docstrings
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Nightly rebuild catches drift if upstream dependencies silently change.
+    - cron: "13 6 * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build the site. Runs on every trigger (PR + push + tag + schedule).
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build docs site
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout (with full history for last-updated author/time)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install docs dependencies
+        working-directory: website
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      # ------------------------------------------------------------------
+      # Sync step: rebuilds every /docs/_generated/* file from the repo
+      # root canonical sources. This is what keeps the site perpetually
+      # up-to-date with README.md, ROADMAP.md, CONTRIBUTING.md,
+      # CODE_OF_CONDUCT.md, flowgraphs/*.grc, and rfwhisper/*.py.
+      # ------------------------------------------------------------------
+      - name: Sync generated content
+        working-directory: website
+        run: npm run sync:all
+
+      - name: Typecheck
+        working-directory: website
+        run: npm run typecheck
+
+      # ------------------------------------------------------------------
+      # Version pinning on tag pushes. On `vX.Y.Z`, snapshot the current
+      # "Next" docs as a versioned release so older releases have
+      # reproducible docs. Commit back to main.
+      # ------------------------------------------------------------------
+      - name: Version docs (on tag push)
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: website
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Versioning docs as $VERSION"
+          npm run docusaurus -- docs:version "$VERSION"
+          # Commit back to main so the versioned_docs/ snapshot is preserved.
+          git config user.name  "rfwhisper-docs-bot"
+          git config user.email "docs-bot@users.noreply.github.com"
+          git add versioned_docs versioned_sidebars versions.json || true
+          if git diff --cached --quiet; then
+            echo "No versioned docs changes to commit."
+          else
+            git commit -m "docs(version): snapshot ${GITHUB_REF_NAME}"
+            git push origin HEAD:main || echo "Push rejected (likely branch protection); human intervention needed."
+          fi
+
+      - name: Build site
+        working-directory: website
+        env:
+          # Public docs live at https://rfwhisper.org (CNAME to GitHub Pages).
+          DOCS_SITE_URL: https://rfwhisper.org
+          DOCS_BASE_URL: /
+          GH_ORG: ${{ github.repository_owner }}
+          GH_REPO: ${{ github.event.repository.name }}
+        run: npm run build
+
+      - name: Verify build output
+        working-directory: website
+        run: |
+          test -f build/index.html
+          test -f build/sitemap.xml
+          echo "Build artifacts look sane."
+
+      - name: Upload build artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/build
+
+      - name: Upload PR preview artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-build-pr-${{ github.event.pull_request.number }}
+          path: website/build
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Deploy to GitHub Pages. Only on pushes to main / tags / schedule /
+  # workflow_dispatch — never on PRs.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

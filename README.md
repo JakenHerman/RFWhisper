@@ -1,10 +1,17 @@
+<p align="center">
+  <a href="https://rfwhisper.org" title="RFWhisper documentation">
+    <img src="website/static/img/logo.svg" width="120" height="120" alt="RFWhisper logo" />
+  </a>
+</p>
+
 # RFWhisper
 
 > **Real-time AI denoising for ham radio. No cloud. No compromises. Just clean QSOs from the noisy RF aether.**
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](./LICENSE)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](./ROADMAP.md)
-[![CI](https://github.com/rfwhisper/rfwhisper/actions/workflows/basic-ci.yml/badge.svg)](./.github/workflows/basic-ci.yml)
+[![CI](https://github.com/jakenherman/rfwhisper/actions/workflows/basic-ci.yml/badge.svg)](./.github/workflows/basic-ci.yml)
+[![Docs](https://img.shields.io/badge/docs-rfwhisper.org-0d3b66)](https://rfwhisper.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 [![Discord](https://img.shields.io/badge/chat-ham%20%26%20dev-purple.svg)](#community)
 
@@ -134,7 +141,7 @@ And because it's **local-first** and **open-source (GPLv3)**, you can:
 ### Install (from source, alpha)
 
 ```bash
-git clone https://github.com/rfwhisper/rfwhisper.git
+git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[audio]"

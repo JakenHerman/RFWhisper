@@ -1,0 +1,472 @@
+/* -----------------------------------------------------------------------------
+ * RFWhisper theme — ham-radio dark-mode aesthetic.
+ *
+ * Palette intent:
+ *   - Dark background evoking a well-lit shack at night (deep navy, not black)
+ *   - Accent "phosphor green" for spectra/waterfalls and interactive highlights
+ *   - Warm amber as a secondary accent (think analog S-meters / dial lamps)
+ *   - Honest monospace for callouts (JetBrains Mono / SF Mono / Menlo)
+ *
+ * Light mode keeps the same palette, flipped and desaturated; both meet
+ * WCAG AA contrast.
+ * --------------------------------------------------------------------------- */
+
+:root {
+  /* Primary = phosphor green, calibrated for WCAG AA on light bg */
+  --ifm-color-primary: #1b7f3a;
+  --ifm-color-primary-dark: #167032;
+  --ifm-color-primary-darker: #14682f;
+  --ifm-color-primary-darkest: #105627;
+  --ifm-color-primary-light: #209042;
+  --ifm-color-primary-lighter: #228f44;
+  --ifm-color-primary-lightest: #2fa952;
+
+  --ifm-color-secondary: #c98a1a;
+  --ifm-heading-color: #0b1220;
+
+  --ifm-code-font-size: 92%;
+  --ifm-font-family-monospace: 'JetBrains Mono', ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --ifm-heading-font-weight: 700;
+
+  --docusaurus-highlighted-code-line-bg: rgba(27, 127, 58, 0.12);
+
+  /* RFWhisper-specific tokens */
+  --rfw-phosphor: #39ff88;
+  --rfw-phosphor-dim: #1b7f3a;
+  --rfw-amber: #ffb020;
+  --rfw-signal: #7fdbff;
+  --rfw-qrm: #ff5c7a;
+  --rfw-shack-bg: #f4f6fb;
+  --rfw-shack-panel: #ffffff;
+  --rfw-shack-muted: #5b6573;
+  --rfw-border: #d7dbe4;
+  --rfw-scanline: rgba(11, 18, 32, 0.04);
+
+  /* Landing page spectrum (warm / analog, not “matrix green”) */
+  --rfw-landing-canvas: #f0ebe3;
+  --rfw-landing-ink: #1c1917;
+  --rfw-landing-spectrum-messy: #b45309;
+  --rfw-landing-spectrum-clean: #1d4ed8;
+  --rfw-landing-birdie: #dc2626;
+  --rfw-landing-passband: #ca8a04;
+  --rfw-landing-panel: #faf7f2;
+  --rfw-landing-rule: #d6cfc4;
+}
+
+/* Dark mode: the shack at night */
+[data-theme='dark'] {
+  --ifm-color-primary: #39ff88;
+  --ifm-color-primary-dark: #2fe377;
+  --ifm-color-primary-darker: #27cb69;
+  --ifm-color-primary-darkest: #1fa856;
+  --ifm-color-primary-light: #5cff9f;
+  --ifm-color-primary-lighter: #73ffad;
+  --ifm-color-primary-lightest: #9effc3;
+
+  --ifm-background-color: #0b1220;
+  --ifm-background-surface-color: #0f1830;
+  --ifm-heading-color: #f4f6ff;
+  --ifm-font-color-base: #d6dbe8;
+  --ifm-navbar-background-color: rgba(11, 18, 32, 0.9);
+  --ifm-footer-background-color: #070c17;
+  --ifm-footer-color: #b7bfd1;
+  --ifm-toc-border-color: #1a2542;
+
+  --docusaurus-highlighted-code-line-bg: rgba(57, 255, 136, 0.12);
+
+  --rfw-shack-bg: #0b1220;
+  --rfw-shack-panel: #101a32;
+  --rfw-shack-muted: #8591a8;
+  --rfw-border: #1c2748;
+  --rfw-scanline: rgba(57, 255, 136, 0.035);
+
+  --rfw-landing-canvas: #12100e;
+  --rfw-landing-ink: #f5f0e8;
+  --rfw-landing-spectrum-messy: #ea8b3a;
+  --rfw-landing-spectrum-clean: #60a5fa;
+  --rfw-landing-birdie: #f87171;
+  --rfw-landing-passband: #fbbf24;
+  --rfw-landing-panel: #1a1714;
+  --rfw-landing-rule: #3f3a34;
+}
+
+/* ------------------------------- Global layout ---------------------------- */
+
+html {
+  background: var(--rfw-shack-bg);
+}
+
+body {
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.main-wrapper {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      var(--rfw-scanline) 0 1px,
+      transparent 1px 3px
+    ),
+    var(--rfw-shack-bg);
+}
+
+/* Calmer homepage: no faux-CRT scanlines (docs pages keep them) */
+.main-wrapper:has(.rfw-landing) {
+  background: var(--rfw-landing-canvas);
+}
+
+/* Headings: slightly tighter, heavier — "station ID plate" energy */
+h1, h2, h3, h4 {
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem);
+}
+
+/* --------------------------------- Navbar --------------------------------- */
+
+.navbar {
+  backdrop-filter: saturate(160%) blur(12px);
+  border-bottom: 1px solid var(--rfw-border);
+}
+
+.navbar__title {
+  font-family: var(--ifm-font-family-base);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* GitHub icon in navbar */
+.header-github-link::before {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
+  background-color: currentColor;
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 .5C5.73.5.67 5.57.67 11.85c0 5.02 3.24 9.28 7.75 10.79.57.11.78-.25.78-.55 0-.27-.01-.99-.01-1.95-3.15.69-3.81-1.52-3.81-1.52-.52-1.31-1.26-1.66-1.26-1.66-1.03-.7.08-.69.08-.69 1.14.08 1.74 1.17 1.74 1.17 1.01 1.74 2.66 1.24 3.31.95.1-.74.4-1.24.72-1.52-2.51-.29-5.16-1.26-5.16-5.6 0-1.24.44-2.25 1.17-3.05-.12-.29-.51-1.44.11-3 0 0 .96-.31 3.15 1.17a10.9 10.9 0 0 1 5.74 0c2.19-1.48 3.14-1.17 3.14-1.17.63 1.56.24 2.71.12 3 .73.8 1.17 1.81 1.17 3.05 0 4.35-2.65 5.31-5.17 5.59.41.35.77 1.05.77 2.12 0 1.53-.01 2.77-.01 3.14 0 .31.2.67.79.55a11.36 11.36 0 0 0 7.74-10.78C23.33 5.57 18.27.5 12 .5Z'/></svg>");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  transition: background-color 0.15s ease;
+}
+
+/* ------------------------------ Announcement ------------------------------ */
+
+div[class^='announcementBar'] {
+  font-family: var(--ifm-font-family-base);
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  border-bottom: 1px solid var(--rfw-border);
+}
+
+/* ------------------------------- Code blocks ------------------------------ */
+
+.prism-code {
+  font-size: 0.875rem;
+  border: 1px solid var(--rfw-border);
+}
+
+code {
+  font-feature-settings: 'calt' 0;
+  border: 1px solid var(--rfw-border);
+  padding: 0.08rem 0.32rem;
+  border-radius: 4px;
+}
+
+/* A "ham-callout" magic comment class — shows a phosphor bar on the left */
+.code-block-ham-line {
+  background-color: rgba(57, 255, 136, 0.08);
+  display: block;
+  margin: 0 calc(-1 * var(--ifm-pre-padding));
+  padding: 0 var(--ifm-pre-padding);
+  border-left: 3px solid var(--rfw-phosphor);
+}
+
+/* --------------------------------- Tables --------------------------------- */
+
+table thead {
+  background: linear-gradient(
+    180deg,
+    rgba(27, 127, 58, 0.08),
+    transparent
+  );
+}
+
+[data-theme='dark'] table thead {
+  background: linear-gradient(
+    180deg,
+    rgba(57, 255, 136, 0.14),
+    transparent
+  );
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--rfw-border);
+}
+
+/* -------------------------------- Admonitions ----------------------------- */
+
+.theme-admonition {
+  border-radius: 10px;
+  border-left-width: 4px;
+}
+
+.theme-admonition-note::before,
+.theme-admonition-tip::before {
+  /* Little dit-dah on the left of ham tips (::before on the title bar) */
+}
+
+/* -------------------------- Landing (home only) --------------------------- */
+
+.rfw-landing {
+  color: var(--rfw-landing-ink);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(2.5rem, 4vw, 4rem) 1.25rem 3.5rem;
+}
+
+.rfw-landing__head {
+  max-width: 58ch;
+}
+
+.rfw-landing__kicker {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--rfw-shack-muted);
+  margin: 0 0 0.75rem;
+}
+
+.rfw-landing__h1 {
+  font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  font-size: clamp(2.1rem, 1.1rem + 2.4vw, 3.1rem);
+  line-height: 1.1;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  color: var(--rfw-landing-ink);
+}
+
+.rfw-landing__lede {
+  font-size: 1.08rem;
+  line-height: 1.6;
+  color: var(--rfw-shack-muted);
+  margin: 0 0 1.75rem;
+  max-width: 52ch;
+}
+
+.rfw-landing__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.rfw-landing__badges {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  font-size: 0.88rem;
+  color: var(--rfw-shack-muted);
+  border-top: 1px solid var(--rfw-landing-rule);
+  padding-top: 1.1rem;
+  max-width: 46ch;
+}
+
+.rfw-landing__badges li::before {
+  content: '· ';
+  color: var(--ifm-color-primary);
+  font-weight: 700;
+}
+
+.rfw-landing__plot {
+  margin: 2.75rem 0 2.5rem;
+  padding: 1.5rem 1.25rem 1.25rem;
+  background: var(--rfw-landing-panel);
+  border: 1px solid var(--rfw-landing-rule);
+  border-radius: 4px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.rfw-landing__plot-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--rfw-shack-muted);
+  margin: 0 0 0.35rem;
+}
+
+.rfw-landing__plot-sub {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--rfw-shack-muted);
+  margin: 0 0 1.25rem;
+  max-width: 62ch;
+}
+
+.rfw-landing__spectrum-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.78rem;
+}
+.rfw-landing__legend { font-weight: 500; }
+.rfw-landing__legend--qrm { color: var(--rfw-landing-spectrum-messy); }
+.rfw-landing__legend--ok { color: var(--rfw-landing-spectrum-clean); }
+
+.rfw-landing__svg {
+  width: 100%;
+  height: auto;
+  max-height: 140px;
+  color: var(--rfw-landing-rule);
+  display: block;
+}
+.rfw-landing__passband-label { fill: var(--rfw-shack-muted); }
+
+.rfw-landing__split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 2.5rem 2rem;
+  align-items: start;
+  margin-top: 0.5rem;
+}
+@media (max-width: 996px) {
+  .rfw-landing__split { grid-template-columns: 1fr; }
+}
+
+.rfw-landing__h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--rfw-shack-muted);
+  margin: 0 0 1.1rem;
+}
+
+.rfw-landing__pillar-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.rfw-landing__pillar {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem 1.1rem;
+  margin-bottom: 1.4rem;
+  padding-bottom: 1.4rem;
+  border-bottom: 1px solid var(--rfw-landing-rule);
+}
+.rfw-landing__pillar:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+
+.rfw-landing__pillar-idx {
+  font-family: Georgia, serif;
+  font-size: 1.35rem;
+  line-height: 1;
+  color: var(--ifm-color-secondary);
+  opacity: 0.9;
+  min-width: 1.5rem;
+}
+.rfw-landing__pillar-title {
+  font-size: 1.1rem;
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+}
+.rfw-landing__pillar-link { color: inherit; text-decoration: none; }
+.rfw-landing__pillar-link:hover { text-decoration: underline; text-underline-offset: 0.2em; }
+.rfw-landing__pillar-text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--rfw-shack-muted);
+}
+
+.rfw-landing__docstrip {
+  position: sticky;
+  top: 1rem;
+  padding: 1.1rem 1.15rem 1.15rem;
+  background: var(--rfw-landing-panel);
+  border: 1px solid var(--rfw-landing-rule);
+  border-radius: 4px;
+}
+.rfw-landing__docstrip-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--rfw-shack-muted);
+  margin: 0 0 0.6rem;
+}
+.rfw-landing__docstrip ul { list-style: none; margin: 0; padding: 0; }
+.rfw-landing__docstrip li { margin: 0 0 0.5rem; }
+.rfw-landing__docstrip li:last-child { margin-bottom: 0; }
+.rfw-landing__doclink {
+  font-size: 0.92rem;
+  line-height: 1.4;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.rfw-landing__doclink:hover { border-bottom-color: var(--ifm-color-primary); }
+
+.rfw-landing__foot {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rfw-landing-rule);
+  font-size: 0.9rem;
+  color: var(--rfw-shack-muted);
+  max-width: 52ch;
+}
+
+/* --------------------------------- Callouts ------------------------------- */
+
+.rfw-73 {
+  display: inline-block;
+  font-family: Georgia, serif;
+  font-style: italic;
+  color: var(--ifm-color-secondary);
+  padding: 0 0.15rem;
+}
+
+/* -------------------------- Flowgraph renderer ---------------------------- */
+
+.rfw-flowgraph {
+  border: 1px solid var(--rfw-border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem 1.25rem;
+  background: var(--rfw-shack-panel);
+  margin: 1.25rem 0;
+}
+.rfw-flowgraph__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  border-bottom: 1px dashed var(--rfw-border);
+  padding-bottom: 0.5rem;
+}
+.rfw-flowgraph__title {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.92rem;
+  margin: 0;
+}
+.rfw-flowgraph__meta {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.72rem;
+  color: var(--rfw-shack-muted);
+}
+.rfw-flowgraph .mermaid {
+  background: transparent;
+}
+
+/* ------------------------------- Prefers motion --------------------------- */
+

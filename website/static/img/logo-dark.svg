@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-label="RFWhisper logo">
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="#0b1220" stroke="#1c2748"/>
+  <g stroke="#39ff88" stroke-width="2.2" fill="none" stroke-linecap="round">
+    <path d="M10 34 C 18 34, 18 22, 26 22 S 34 34, 42 34 S 50 22, 58 22" opacity="0.35"/>
+    <path d="M10 38 C 18 38, 18 26, 26 26 S 34 38, 42 38 S 50 26, 58 26" opacity="0.65"/>
+    <path d="M10 42 C 18 42, 18 30, 26 30 S 34 42, 42 42 S 50 30, 58 30"/>
+  </g>
+  <circle cx="32" cy="32" r="3" fill="#39ff88"/>
+  <text x="32" y="56" text-anchor="middle" fill="#f4f6ff" font-family="JetBrains Mono, ui-monospace, monospace" font-size="8" font-weight="700" letter-spacing="1">RFW</text>
+</svg>
