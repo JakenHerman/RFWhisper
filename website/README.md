@@ -64,9 +64,9 @@ website/
 │   ├── use-cases/
 │   ├── intro.md
 │   ├── why-rfwhisper.md
-│   ├── roadmap.md           ← thin wrapper that imports _generated/roadmap.md
-│   ├── contributing.md      ← ditto for _generated/contributing.md
-│   ├── code-of-conduct.md   ← ditto
+│   ├── roadmap.mdx          ← MDX wrapper (imports _generated/roadmap.md)
+│   ├── contributing.mdx     ← ditto _generated/contributing.md
+│   ├── code-of-conduct.mdx  ← ditto _generated/code-of-conduct.md
 │   └── faq.md
 ├── scripts/
 │   ├── sync-all.mjs         ← orchestrator (runs in prestart/prebuild)
