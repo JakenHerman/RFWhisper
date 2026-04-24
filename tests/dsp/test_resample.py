@@ -5,7 +5,15 @@ from __future__ import annotations
 import numpy as np
 from scipy.signal import correlate
 
+import pytest
+
 from rfwhisper.dsp.resample import resample_16k_to_48k, resample_48k_to_16k
+
+
+def test_resample_rejects_non_1d() -> None:
+    stereo = np.zeros((100, 2), dtype=np.float64)
+    with pytest.raises(ValueError, match="1-D mono"):
+        resample_48k_to_16k(stereo)
 
 
 def test_resample_roundtrip_1khz_under_60_db() -> None:
