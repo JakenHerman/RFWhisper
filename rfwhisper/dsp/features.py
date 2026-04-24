@@ -98,7 +98,15 @@ def stft_frames(x: NDArray[np.floating], win_size: int, hop: int) -> NDArray[np.
     Frame ``k`` is ``x[k * hop : k * hop + win_size] * sqrt(hann_window(win_size))``.
     Only complete frames are returned, shape ``(n_frames, win_size)``.
     """
-    x = np.asarray(x, dtype=np.float64).ravel()
+    if win_size <= 0 or hop <= 0:
+        raise ValueError("win_size and hop must be positive")
+    if hop > win_size:
+        raise ValueError("hop must not exceed win_size")
+    x = np.asarray(x, dtype=np.float64)
+    if x.ndim != 1:
+        raise ValueError(
+            "expected a 1-D signal (shape (n,)); pass one channel at a time for multi-channel audio"
+        )
     if x.size < win_size:
         return np.zeros((0, win_size), dtype=np.float64)
     w_sqrt = np.sqrt(hann_window(win_size))

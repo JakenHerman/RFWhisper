@@ -84,6 +84,22 @@ def test_frame_buffer_sine_roundtrip_steady_state() -> None:
     np.testing.assert_allclose(y_ss[:steady], x[:steady], rtol=1e-3, atol=5e-3)
 
 
+def test_stft_frames_rejects_invalid_params() -> None:
+    x = np.zeros(100, dtype=np.float64)
+    with pytest.raises(ValueError, match="win_size and hop must be positive"):
+        stft_frames(x, win_size=0, hop=10)
+    with pytest.raises(ValueError, match="win_size and hop must be positive"):
+        stft_frames(x, win_size=32, hop=0)
+    with pytest.raises(ValueError, match="hop must not exceed win_size"):
+        stft_frames(x, win_size=32, hop=64)
+
+
+def test_stft_frames_rejects_non_1d() -> None:
+    x2 = np.zeros((50, 2), dtype=np.float64)
+    with pytest.raises(ValueError, match="1-D signal"):
+        stft_frames(x2, win_size=16, hop=8)
+
+
 def test_stft_frames_shape_and_matches_manual() -> None:
     x = np.random.default_rng(0).standard_normal(5_000).astype(np.float64)
     win, hop = 320, 160
