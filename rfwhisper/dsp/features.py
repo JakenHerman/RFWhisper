@@ -17,10 +17,12 @@ def hann_window(n: int) -> NDArray[np.float64]:
     """Periodic Hann of length ``n`` (``fftbins=True`` / DFN3 reference convention).
 
     Matches ``scipy.signal.get_window("hann", n, fftbins=True)`` (``sym=False``) within
-    floating error.
+    floating error, including SciPy's length-1 special case (all-ones window).
     """
     if n <= 0:
         raise ValueError("n must be positive")
+    if n == 1:
+        return np.ones(1, dtype=np.float64)
     idx = np.arange(n, dtype=np.float64)
     return 0.5 * (1.0 - np.cos(2.0 * np.pi * idx / float(n)))
 

@@ -20,7 +20,7 @@ from rfwhisper.dsp.features import (
 def test_hann_matches_scipy_fftbins() -> None:
     scipy_signal = pytest.importorskip("scipy.signal", reason="scipy required for reference")
     get_window = scipy_signal.get_window
-    for n in (320, 960, 100):
+    for n in (1, 100, 320, 960):
         ref = get_window("hann", n, fftbins=True).astype(np.float64)
         got = hann_window(n)
         np.testing.assert_allclose(got, ref, rtol=0, atol=1e-15)
