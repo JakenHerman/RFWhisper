@@ -35,9 +35,13 @@ class FrameBuffer:
       periodic Hann (``fftbins=True``); advancing the FIFO by ``hop``.
     * ``overlap_add`` does ``ola += processed * sqrt(w)`` and returns the next ``hop``
       samples from the accumulator (50 % overlap ⇒ overlapping Hann weights sum to 1).
+
+    Samples are held in a fixed-capacity ring buffer (``win_size + hop``) so ``push``
+    does not grow or concatenate on each hop—important for long streams and for
+    eventual realtime use (see AGENTS.md: avoid per-callback allocations).
     """
 
-    __slots__ = ("_hop", "_in_buf", "_ola", "_win_sqrt", "_win_size")
+    __slots__ = ("_cap", "_fifo", "_hop", "_n", "_ola", "_rd", "_win_sqrt", "_win_size")
 
     def __init__(self, win_size: int, hop: int) -> None:
         if win_size <= 0 or hop <= 0:
@@ -48,7 +52,10 @@ class FrameBuffer:
         self._hop = hop
         w = hann_window(win_size)
         self._win_sqrt = np.sqrt(w)
-        self._in_buf = np.zeros(0, dtype=np.float64)
+        self._cap = win_size + hop
+        self._fifo = np.zeros(self._cap, dtype=np.float64)
+        self._rd = 0
+        self._n = 0
         self._ola = np.zeros(win_size, dtype=np.float64)
 
     @property
@@ -60,28 +67,45 @@ class FrameBuffer:
         return self._hop
 
     def push(self, hop_samples: NDArray[np.floating]) -> None:
-        h = np.asarray(hop_samples, dtype=np.float64).ravel()
-        if h.size != self._hop:
-            raise ValueError(f"expected {self._hop} samples, got {h.size}")
-        if self._in_buf.size == 0:
-            self._in_buf = h
+        h = np.asarray(hop_samples, dtype=np.float64)
+        if h.ndim != 1 or h.shape[0] != self._hop:
+            raise ValueError(f"expected 1-D hop_samples with shape ({self._hop},), got {h.shape}")
+        if self._n + self._hop > self._cap:
+            raise ValueError(
+                "analysis fifo full: call next_frame() whenever ready() before pushing more hops"
+            )
+        wr = (self._rd + self._n) % self._cap
+        room = self._cap - wr
+        if room >= self._hop:
+            self._fifo[wr : wr + self._hop] = h
         else:
-            self._in_buf = np.concatenate((self._in_buf, h))
+            self._fifo[wr:] = h[:room]
+            self._fifo[: self._hop - room] = h[room:]
+        self._n += self._hop
 
     def ready(self) -> bool:
-        return self._in_buf.size >= self._win_size
+        return self._n >= self._win_size
 
     def next_frame(self) -> NDArray[np.float64]:
         if not self.ready():
             raise RuntimeError("not enough samples for a full frame")
-        x = self._in_buf[: self._win_size]
-        self._in_buf = self._in_buf[self._hop :]
-        return x * self._win_sqrt
+        wsz = self._win_size
+        x = np.empty(wsz, dtype=np.float64)
+        first = min(wsz, self._cap - self._rd)
+        x[:first] = self._fifo[self._rd : self._rd + first]
+        if first < wsz:
+            x[first:] = self._fifo[: wsz - first]
+        self._rd = (self._rd + self._hop) % self._cap
+        self._n -= self._hop
+        x *= self._win_sqrt
+        return x
 
     def overlap_add(self, processed_frame: NDArray[np.floating]) -> NDArray[np.float64]:
-        p = np.asarray(processed_frame, dtype=np.float64).ravel()
-        if p.size != self._win_size:
-            raise ValueError(f"processed_frame must have length {self._win_size}")
+        p = np.asarray(processed_frame, dtype=np.float64)
+        if p.ndim != 1 or p.shape[0] != self._win_size:
+            raise ValueError(
+                f"expected 1-D processed_frame with shape ({self._win_size},), got {p.shape}"
+            )
         self._ola += p * self._win_sqrt
         out: NDArray[np.float64] = np.asarray(self._ola[: self._hop].copy(), dtype=np.float64)
         # Shift accumulator left by one hop; zero the new tail for the next overlap.
