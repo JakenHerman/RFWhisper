@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rfwhisper"
+version = "0.1.0"
+description = "Real-time ML noise reduction for amateur radio"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.24",
+  "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.10",
+  "pre-commit",
+  "pytest>=8",
+  "pytest-xdist",
+  "ruff>=0.5",
+]
+audio = [
+  "onnxruntime>=1.15",
+  "scipy>=1.10",
+  "sounddevice>=0.4",
+  "soundfile>=0.12",
+]
+eval = [
+  "pesq",
+  "pystoi",
+  "scipy>=1.10",
+]
+
+[project.scripts]
+rfwhisper = "rfwhisper.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["rfwhisper*"]
+
+[tool.setuptools.package-data]
+rfwhisper = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "W"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["pesq", "pystoi", "pesq.pesq"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["scipy.signal"]
+ignore_missing_imports = true
