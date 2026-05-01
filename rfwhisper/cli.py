@@ -1,14 +1,30 @@
-"""CLI entrypoint (expanded in later milestones)."""
+"""CLI entrypoint — placeholder Typer app; subcommands land in later milestones."""
 
 from __future__ import annotations
 
-import argparse
+import typer
 
 from rfwhisper import __version__
 
+app = typer.Typer(
+    name="rfwhisper",
+    help="RFWhisper — real-time ML noise reduction for amateur radio.",
+    add_completion=False,
+)
 
-def main() -> None:
-    parser = argparse.ArgumentParser(prog="rfwhisper", description="RFWhisper denoiser CLI")
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    parser.parse_args()
-    parser.print_help()
+
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    version: bool = typer.Option(
+        False,
+        "--version",
+        help="Show the version and exit.",
+    ),
+) -> None:
+    """RFWhisper CLI."""
+    if version:
+        typer.echo(f"rfwhisper {__version__}")
+        raise typer.Exit()
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
