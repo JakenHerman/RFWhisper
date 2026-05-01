@@ -119,7 +119,7 @@ Produces:
 Open a PR with:
 
 - The exported `.onnx` and `.json` pinned via Git LFS
-- An entry in `rfwhisper/models/registry.yaml`
+- An entry in `rfwhisper/models/registry.py` (`ARTIFACTS` table) — set `sha256="VERIFY_ON_FIRST_RUN"` and let the first-run flow capture the real hash, then pin it
 - The model card under `docs/models/model-cards/`
 - Eval numbers in the PR description
 

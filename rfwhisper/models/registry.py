@@ -39,6 +39,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @dataclass(frozen=True)
 class ModelArtifact:
+    """
+    On-disk descriptor for a downloadable model artifact.
+
+    Consumed by [fetch.py](rfwhisper/models/fetch.py) (#12). `sha256` is the literal
+    `"VERIFY_ON_FIRST_RUN"` until a release pins a hash — see `models/README.md` for
+    the bless-on-first-run flow.
+    """
+
     name: str
     relpath: str
     url: str
@@ -65,6 +73,7 @@ ARTIFACTS: tuple[ModelArtifact, ...] = (
 
 
 def model_path(name: str) -> Path:
+    """Return the absolute on-disk directory for a given model name (e.g. `deepfilternet3`)."""
     return REPO_ROOT / "models" / name
 
 
@@ -121,6 +130,10 @@ def resolve_providers(
 
 
 def _query_available_providers() -> list[str]:
+    """
+    Query installed ONNX Runtime EPs, or return `["CPUExecutionProvider"]` when ORT
+    isn't installed at all (NullModel-only environments).
+    """
     try:
         ort = _import_onnxruntime()
     except ImportError:
@@ -158,6 +171,7 @@ ModelFactory = Callable[[Path], Model]
 
 
 def _load_dfn3(weights: Path) -> Model:
+    """Construct the DFN3 wrapper (#10). Raises ImportError until that wrapper lands."""
     from rfwhisper.models.dfn3 import DFN3  # type: ignore[import-not-found]
 
     return DFN3(  # type: ignore[no-any-return]
@@ -168,6 +182,7 @@ def _load_dfn3(weights: Path) -> Model:
 
 
 def _load_rnnoise(weights: Path) -> Model:
+    """Construct the RNNoise wrapper (#11). Raises ImportError until that wrapper lands."""
     from rfwhisper.models.rnnoise import RNNoise  # type: ignore[import-not-found]
 
     return RNNoise(  # type: ignore[no-any-return]
@@ -212,6 +227,7 @@ def load_model(name: str, *, fallback_to_null: bool = False) -> Model:
 
 
 def _fallback_or_raise(name: str, exc: Exception, fallback_to_null: bool) -> Model:
+    """Return NullModel with a warning when fallback is allowed; otherwise re-raise `exc`."""
     if fallback_to_null:
         warnings.warn(
             f"load_model({name!r}) falling back to NullModel: {exc}",
