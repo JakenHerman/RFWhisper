@@ -4,17 +4,49 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rfwhisper"
-version = "0.1.0"
+version = "0.1.0a0"
 description = "Real-time ML noise reduction for amateur radio"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"
+authors = [{ name = "Jaken Herman" }]
+keywords = [
+  "amateur-radio",
+  "audio",
+  "denoising",
+  "dsp",
+  "ham-radio",
+  "noise-reduction",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Communications :: Ham Radio",
+  "Topic :: Multimedia :: Sound/Audio",
+  "Topic :: Scientific/Engineering",
+]
 dependencies = [
   "numpy>=1.24",
+  "onnxruntime>=1.15",
+  "pyyaml>=6.0",
+  "rich>=13.0",
   "scipy>=1.10",
+  "soundfile>=0.12",
+  "typer>=0.12",
 ]
 
 [project.optional-dependencies]
+audio = ["sounddevice>=0.4"]
+gui = ["PySide6>=6.5"]
+eval = ["pesq", "pystoi"]
 dev = [
   "mypy>=1.10",
   "pre-commit",
@@ -22,20 +54,14 @@ dev = [
   "pytest-xdist",
   "ruff>=0.5",
 ]
-audio = [
-  "onnxruntime>=1.15",
-  "scipy>=1.10",
-  "sounddevice>=0.4",
-  "soundfile>=0.12",
-]
-eval = [
-  "pesq",
-  "pystoi",
-  "scipy>=1.10",
-]
+
+[project.urls]
+Homepage = "https://github.com/JakenHerman/rfwhisper"
+Repository = "https://github.com/JakenHerman/rfwhisper"
+Issues = "https://github.com/JakenHerman/rfwhisper/issues"
 
 [project.scripts]
-rfwhisper = "rfwhisper.cli:main"
+rfwhisper = "rfwhisper.cli:app"
 
 [tool.setuptools.packages.find]
 include = ["rfwhisper*"]
@@ -56,9 +82,18 @@ strict = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = ["pesq", "pystoi", "pesq.pesq"]
+module = [
+  "onnxruntime",
+  "pesq",
+  "pesq.pesq",
+  "pystoi",
+  "scipy.signal",
+  "sounddevice",
+  "soundfile",
+  "yaml",
+]
 ignore_missing_imports = true
 
-[[tool.mypy.overrides]]
-module = ["scipy.signal"]
-ignore_missing_imports = true
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra"]

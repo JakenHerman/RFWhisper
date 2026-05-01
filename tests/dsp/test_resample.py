@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy.signal import correlate
-
 import pytest
+from scipy.signal import correlate
 
 from rfwhisper.dsp.resample import resample_16k_to_48k, resample_48k_to_16k
 
