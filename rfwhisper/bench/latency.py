@@ -60,7 +60,7 @@ def latency_file(
     print(
         f"[green]p50={r.p50_ms:.2f} ms p99={r.p99_ms:.2f} ms n={r.n_chunks} (processing only)[/green]"
     )
-    if r.p99 > 30 and model == "deepfilternet3":
+    if r.p99_ms > 30 and model == "deepfilternet3":
         print("[yellow]Note: A4 is end-to-end < 100 ms p99; this is chunk processing only.[/yellow]")
 
 
