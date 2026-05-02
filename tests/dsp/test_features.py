@@ -18,6 +18,7 @@ from rfwhisper.dsp.features import (
 
 
 def test_hann_matches_scipy_fftbins() -> None:
+    """`hann_window` must match `scipy.signal.get_window("hann", n, fftbins=True)`."""
     scipy_signal = pytest.importorskip("scipy.signal", reason="scipy required for reference")
     get_window = scipy_signal.get_window
     for n in (1, 100, 320, 960):
@@ -27,6 +28,7 @@ def test_hann_matches_scipy_fftbins() -> None:
 
 
 def test_constants_ten_ms_hop() -> None:
+    """Hop / window constants are 10 ms / 20 ms at their declared rates."""
     assert HOP_48K == pytest.approx(0.01 * 48_000)
     assert WIN_48K == 2 * HOP_48K
     assert HOP_16K == pytest.approx(0.01 * 16_000)
@@ -44,6 +46,7 @@ def test_ola_hann_half_overlap_sums_to_unity() -> None:
 
 
 def test_frame_buffer_sine_roundtrip_steady_state() -> None:
+    """Push → next_frame → overlap_add reconstructs a 1 kHz sine after the WOLA warmup."""
     sr = 48_000
     duration = 1.0
     f0 = 1_000.0
@@ -85,6 +88,7 @@ def test_frame_buffer_sine_roundtrip_steady_state() -> None:
 
 
 def test_stft_frames_rejects_invalid_params() -> None:
+    """`stft_frames` must reject non-positive sizes and `hop > win_size`."""
     x = np.zeros(100, dtype=np.float64)
     with pytest.raises(ValueError, match="win_size and hop must be positive"):
         stft_frames(x, win_size=0, hop=10)
@@ -95,12 +99,14 @@ def test_stft_frames_rejects_invalid_params() -> None:
 
 
 def test_stft_frames_rejects_non_1d() -> None:
+    """Multi-channel input must be rejected — callers feed one channel at a time."""
     x2 = np.zeros((50, 2), dtype=np.float64)
     with pytest.raises(ValueError, match="1-D signal"):
         stft_frames(x2, win_size=16, hop=8)
 
 
 def test_stft_frames_shape_and_matches_manual() -> None:
+    """`stft_frames` shape and contents match a hand-computed sliding window × sqrt-Hann."""
     x = np.random.default_rng(0).standard_normal(5_000).astype(np.float64)
     win, hop = 320, 160
     frames = stft_frames(x, win, hop)

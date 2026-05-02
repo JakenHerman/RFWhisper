@@ -10,12 +10,14 @@ from rfwhisper.dsp.resample import resample_16k_to_48k, resample_48k_to_16k
 
 
 def test_resample_rejects_non_1d() -> None:
+    """Stereo / multi-channel input must raise — callers resample per channel."""
     stereo = np.zeros((100, 2), dtype=np.float64)
     with pytest.raises(ValueError, match="1-D mono"):
         resample_48k_to_16k(stereo)
 
 
 def test_resample_roundtrip_1khz_under_60_db() -> None:
+    """48 → 16 → 48 kHz roundtrip on a 1 kHz tone reconstructs to better than -60 dB."""
     sr_in = 48_000
     duration = 6.0
     f0 = 1_000.0

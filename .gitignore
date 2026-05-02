@@ -266,9 +266,12 @@ $RECYCLE.BIN/
 .Trash-*
 .nfs*
 
-# IDEs
+# IDEs / AI assistants
 .idea/
 .vscode/
+.claude/
+.cursor/
+.aider*
 !.vscode/settings.json.example
 !.vscode/extensions.json.example
 !.vscode/launch.json.example

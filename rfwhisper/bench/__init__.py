@@ -1,1 +1,1 @@
-"""Benchmarking and quality-gate harnesses (filled in by later milestones)."""
+"""Benchmarks: latency, RTF, HDR histograms (extend with hdrhistogram)."""

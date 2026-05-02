@@ -44,6 +44,14 @@ class FrameBuffer:
     __slots__ = ("_cap", "_fifo", "_hop", "_n", "_ola", "_rd", "_win_sqrt", "_win_size")
 
     def __init__(self, win_size: int, hop: int) -> None:
+        """
+        Pre-allocate the analysis ring buffer and overlap-add accumulator.
+
+        `win_size` is the analysis window in samples (e.g. 960 at 48 kHz for DFN3);
+        `hop` is the per-step advance (e.g. 480 = 50 % overlap). Both must be positive
+        and `hop <= win_size`. Allocations happen here so the realtime path never
+        allocates inside `push` / `next_frame` / `overlap_add`.
+        """
         if win_size <= 0 or hop <= 0:
             raise ValueError("win_size and hop must be positive")
         if hop > win_size:
@@ -60,13 +68,22 @@ class FrameBuffer:
 
     @property
     def win_size(self) -> int:
+        """Analysis-window length in samples."""
         return self._win_size
 
     @property
     def hop(self) -> int:
+        """Per-step advance in samples (50 % overlap when `hop == win_size / 2`)."""
         return self._hop
 
     def push(self, hop_samples: NDArray[np.floating]) -> None:
+        """
+        Append exactly one hop of new samples to the analysis FIFO.
+
+        Raises ValueError if the input shape isn't `(hop,)`, or if the caller has
+        pushed more hops than the buffer can hold without consuming a frame — that's
+        a programming error (the contract is push, then `next_frame` whenever `ready`).
+        """
         h = np.asarray(hop_samples, dtype=np.float64)
         if h.ndim != 1 or h.shape[0] != self._hop:
             raise ValueError(f"expected 1-D hop_samples with shape ({self._hop},), got {h.shape}")
@@ -84,9 +101,15 @@ class FrameBuffer:
         self._n += self._hop
 
     def ready(self) -> bool:
+        """True when the FIFO holds at least one full window."""
         return self._n >= self._win_size
 
     def next_frame(self) -> NDArray[np.float64]:
+        """
+        Return the next windowed analysis frame `x * sqrt(hann)` and advance by one hop.
+
+        Raises RuntimeError if `ready()` is False — callers must check before calling.
+        """
         if not self.ready():
             raise RuntimeError("not enough samples for a full frame")
         wsz = self._win_size
@@ -101,6 +124,13 @@ class FrameBuffer:
         return x
 
     def overlap_add(self, processed_frame: NDArray[np.floating]) -> NDArray[np.float64]:
+        """
+        Synthesis half of WOLA: weight by `sqrt(hann)`, add to the accumulator,
+        and emit the next `hop` output samples.
+
+        For 50 % overlap with periodic Hann, the overlapping square-root windows sum to
+        one — so this reconstructs the time-domain signal without amplitude bias.
+        """
         p = np.asarray(processed_frame, dtype=np.float64)
         if p.ndim != 1 or p.shape[0] != self._win_size:
             raise ValueError(

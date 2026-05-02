@@ -1,99 +1,122 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "rfwhisper"
-version = "0.1.0a0"
-description = "Real-time ML noise reduction for amateur radio"
+version = "0.1.0a1"
+description = "Real-time AI denoising for ham radio (local-first, GPLv3+)"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
-requires-python = ">=3.10,<3.13"
-authors = [{ name = "Jaken Herman" }]
-keywords = [
-  "amateur-radio",
-  "audio",
-  "denoising",
-  "dsp",
-  "ham-radio",
-  "noise-reduction",
-]
+requires-python = ">=3.10"
+authors = [{ name = "RFWhisper contributors" }]
 classifiers = [
-  "Development Status :: 3 - Alpha",
-  "Intended Audience :: Science/Research",
   "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
-  "Operating System :: MacOS",
-  "Operating System :: Microsoft :: Windows",
-  "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
   "Topic :: Communications :: Ham Radio",
-  "Topic :: Multimedia :: Sound/Audio",
-  "Topic :: Scientific/Engineering",
 ]
 dependencies = [
   "numpy>=1.24",
-  "onnxruntime>=1.15",
-  "pyyaml>=6.0",
-  "rich>=13.0",
   "scipy>=1.10",
-  "soundfile>=0.12",
-  "typer>=0.12",
+  "onnxruntime>=1.17",
+  "typer[all]>=0.9",
+  "rich>=13.0",
 ]
 
 [project.optional-dependencies]
-audio = ["sounddevice>=0.4"]
-gui = ["PySide6>=6.5"]
-eval = ["pesq", "pystoi"]
+audio = [
+  "soundfile>=0.12",
+  "sounddevice>=0.4",
+  "pooch>=1.7",
+]
+# Upstream PyTorch + DeepFilterNet (MIT/Apache) — high-quality v0.1 path, see models/README
+df = [
+  "torch>=2.0",
+  "torchaudio>=2.0",
+  "deepfilternet>=0.5",
+]
 dev = [
-  "mypy>=1.10",
-  "pre-commit",
-  "pytest>=8",
-  "pytest-xdist",
   "ruff>=0.5",
+  "mypy>=1.10",
+  "pytest>=8.0",
+  "pytest-cov>=4.0",
+  "onnx>=1.16",
+  "httpx>=0.27",
+]
+eval = [
+  "pystoi>=0.3",
+  "pesq>=0.0.4",
+]
+train = [
+  "torch>=2.0",
+  "torchaudio>=2.0",
+  "h5py>=3.0",
+  "librosa>=0.10",
+  "pyyaml>=6.0",
 ]
 
-[project.urls]
-Homepage = "https://github.com/JakenHerman/rfwhisper"
-Repository = "https://github.com/JakenHerman/rfwhisper"
-Issues = "https://github.com/JakenHerman/rfwhisper/issues"
-
 [project.scripts]
-rfwhisper = "rfwhisper.cli:app"
+rfwhisper = "rfwhisper.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/jakenherman/rfwhisper"
+Documentation = "https://rfwhisper.org"
+Repository = "https://github.com/jakenherman/rfwhisper"
 
 [tool.setuptools.packages.find]
 include = ["rfwhisper*"]
 
-[tool.setuptools.package-data]
-rfwhisper = ["py.typed"]
-
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+extend-exclude = ["flowgraphs/*.py", "gr-rfwhisper", "build", "dist"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "W"]
+select = ["E", "F", "I", "B", "UP", "N"]
+ignore = ["N818"]
 
 [tool.mypy]
 python_version = "3.10"
 strict = true
 warn_unused_ignores = true
 
+# Per-module overrides MUST use the [[tool.mypy.overrides]] array-of-tables form when
+# configured via pyproject.toml. The legacy `[tool.mypy-<module>]` syntax is the
+# `mypy.ini` / `setup.cfg` format and is silently ignored when read from pyproject.
 [[tool.mypy.overrides]]
 module = [
+  "df",
+  "deepfilternet",
+  "onnx",
   "onnxruntime",
   "pesq",
   "pesq.pesq",
   "pystoi",
+  "rich",
+  "rich.console",
+  "scipy",
   "scipy.signal",
   "sounddevice",
   "soundfile",
-  "yaml",
+  "torch",
+  "torchaudio",
+  "typer",
 ]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-ra"]
+addopts = "-q --strict-markers"
+markers = [
+  "runslow: long / integration tests (A1–A6 harness)",
+  "needs_model: needs fetched ONNX or df stack",
+  "needs_df: needs deepfilternet + torch",
+  "needs_wsjtx: needs WSJT-X jt9 binary",
+  "needs_gnuradio: needs GNU Radio Python bindings",
+  "a1: maps to ROADMAP A1",
+  "a2: maps to ROADMAP A2",
+  "a3: maps to ROADMAP A3",
+  "a4: maps to ROADMAP A4",
+  "a5: maps to ROADMAP A5",
+  "a6: maps to ROADMAP A6",
+]
