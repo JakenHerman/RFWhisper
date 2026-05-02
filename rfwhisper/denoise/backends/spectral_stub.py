@@ -9,11 +9,14 @@ from __future__ import annotations
 import numpy as np
 
 
-def wiener_like_denoise(x: np.ndarray, sr: int, noise_gate_db: float = -35.0) -> np.ndarray:
+def wiener_like_denoise(x: np.ndarray, sr: int) -> np.ndarray:
     """
     Short-time magnitude-domain Wiener-ish mask (stationary noise assumption).
 
     Improves SNR on synthetic tone+noise tests; does not target ham-specific QRM.
+    The mask floor is a fixed 0.15 (≈ -16.5 dB) — a gentle gate that's enough to
+    keep CW / FT8 transients stable; if you need a different gate you should reach
+    for DFN3, not parameterise this stub.
     """
     x = np.asarray(x, dtype=np.float32)
     if x.size == 0:
