@@ -5,6 +5,7 @@ from __future__ import annotations
 import abc
 import os
 import time
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -134,11 +135,24 @@ def select_engine(model: str) -> DenoiseEngine:
     if model == "deepfilternet3":
         try:
             return TorchDfEngine()
-        except Exception:
-            pass
+        except (ImportError, ModuleNotFoundError) as exc:
+            # Optional df / torch stack isn't installed — fall through to ONNX or stub.
+            # Any other exception (e.g. corrupt checkpoint, GPU init failure) should
+            # surface so it isn't silently masked by a stub.
+            warnings.warn(
+                f"TorchDfEngine unavailable; falling back: {exc}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         p = Path(os.environ.get("RFWHISPER_ONNX", ""))
         if p.is_file():
             return OnnxOrtEngine(p)
         # Last resort: stub with warning
+        warnings.warn(
+            "deepfilternet3 requested but no torch/onnx backend available; "
+            "using SpectralStubEngine (CI / no-model path)",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         return SpectralStubEngine()
     raise ValueError(f"Unknown model {model!r}")
