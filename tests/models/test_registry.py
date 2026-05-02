@@ -117,6 +117,41 @@ def test_load_rnnoise_missing_weights_falls_back(
     assert isinstance(m, NullModel)
 
 
+def test_resolve_intra_op_threads_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the env var unset, the resolver returns the AGENTS default (2)."""
+    from rfwhisper.models.registry import _resolve_intra_op_threads
+
+    monkeypatch.delenv("RFWHISPER_ORT_INTRA_OP", raising=False)
+    assert _resolve_intra_op_threads() == 2
+
+
+def test_resolve_intra_op_threads_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`RFWHISPER_ORT_INTRA_OP=N` overrides the default thread count."""
+    from rfwhisper.models.registry import _resolve_intra_op_threads
+
+    monkeypatch.setenv("RFWHISPER_ORT_INTRA_OP", "4")
+    assert _resolve_intra_op_threads() == 4
+
+
+def test_resolve_intra_op_threads_invalid_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Non-integer / non-positive values warn and fall back to the default."""
+    from rfwhisper.models.registry import _resolve_intra_op_threads
+
+    monkeypatch.setenv("RFWHISPER_ORT_INTRA_OP", "not-an-int")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        n = _resolve_intra_op_threads()
+    assert n == 2
+    assert any(issubclass(w.category, RuntimeWarning) for w in caught)
+
+    monkeypatch.setenv("RFWHISPER_ORT_INTRA_OP", "0")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        n = _resolve_intra_op_threads()
+    assert n == 2
+    assert any(issubclass(w.category, RuntimeWarning) for w in caught)
+
+
 def test_artifact_table_paths_are_relative() -> None:
     """ARTIFACTS entries must use relative paths so fetch.py joins them under REPO_ROOT."""
     # fetch.py joins REPO_ROOT with relpath; absolute paths would silently break that.

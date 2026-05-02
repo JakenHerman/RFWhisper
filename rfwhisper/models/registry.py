@@ -12,12 +12,18 @@ See models/README.md and docs/datasets/SAMPLE_TRAINING_DATASET.md.
 from __future__ import annotations
 
 import importlib
+import os
 import platform
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+# Default per AGENTS §Real-Time Constraints; override via `RFWHISPER_ORT_INTRA_OP`
+# (matches the knob already advertised by `denoise/engine.py:OnnxOrtEngine`).
+_DEFAULT_INTRA_OP_THREADS: int = 2
+_INTRA_OP_ENV_VAR: str = "RFWHISPER_ORT_INTRA_OP"
 
 from rfwhisper.models.base import Model
 from rfwhisper.models.null_model import NullModel
@@ -142,16 +148,50 @@ def _query_available_providers() -> list[str]:
     return providers
 
 
+def _resolve_intra_op_threads() -> int:
+    """
+    Resolve the intra-op thread count, honoring `RFWHISPER_ORT_INTRA_OP` if set.
+
+    Same env var that `denoise/engine.py:OnnxOrtEngine` reads, so registry-loaded
+    models and ad-hoc `.onnx` paths use a consistent thread setting. Invalid
+    values warn and fall back to the default rather than crashing the engine.
+    """
+    raw = os.environ.get(_INTRA_OP_ENV_VAR)
+    if raw is None:
+        return _DEFAULT_INTRA_OP_THREADS
+    try:
+        n = int(raw)
+    except ValueError:
+        warnings.warn(
+            f"{_INTRA_OP_ENV_VAR}={raw!r} is not an int; "
+            f"using default {_DEFAULT_INTRA_OP_THREADS}",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return _DEFAULT_INTRA_OP_THREADS
+    if n < 1:
+        warnings.warn(
+            f"{_INTRA_OP_ENV_VAR}={n} must be >= 1; "
+            f"using default {_DEFAULT_INTRA_OP_THREADS}",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return _DEFAULT_INTRA_OP_THREADS
+    return n
+
+
 def make_session_options() -> Any:
     """
     Build SessionOptions tuned for realtime per AGENTS §Real-Time Constraints.
 
     Returns ort.SessionOptions; typed as Any so this module imports without
-    onnxruntime present (NullModel path on lean CI runners).
+    onnxruntime present (NullModel path on lean CI runners). `intra_op_num_threads`
+    honors `RFWHISPER_ORT_INTRA_OP` so the env knob behaves the same here as in
+    `denoise/engine.py`.
     """
     ort = _import_onnxruntime()
     opts = ort.SessionOptions()
-    opts.intra_op_num_threads = 2
+    opts.intra_op_num_threads = _resolve_intra_op_threads()
     opts.inter_op_num_threads = 1
     opts.enable_cpu_mem_arena = True
     opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
