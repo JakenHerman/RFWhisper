@@ -1,4 +1,4 @@
-"""python -m rfwhisper.models.fetch"""
+"""Entry point for `python -m rfwhisper.models` — dispatches to fetch.main()."""
 
 import sys
 
