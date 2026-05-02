@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 import queue
 import threading
-from typing import cast
 
 import numpy as np
 import sounddevice as sd
@@ -26,9 +25,11 @@ def stream_denoise(
 ) -> None:
     """Duplex stream: callback enqueues; worker runs `DenoiseEngine.process`."""
     eng = select_engine(model)
-    dev_sr = int(
-        sd.query_devices(in_dev or sd.default.device[0], "input")["default_samplerate"]
-    )
+    # Explicit None check — `in_dev or ...` would treat device index 0 as falsy and
+    # silently query the default input device, causing a sample-rate mismatch with
+    # the actual stream below.
+    query_dev = in_dev if in_dev is not None else sd.default.device[0]
+    dev_sr = int(sd.query_devices(query_dev, "input")["default_samplerate"])
     q_in: queue.Queue[np.ndarray] = queue.Queue(maxsize=32)
     q_out: queue.Queue[np.ndarray] = queue.Queue(maxsize=32)
     stop = threading.Event()
