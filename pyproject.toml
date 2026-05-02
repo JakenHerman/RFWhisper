@@ -80,28 +80,28 @@ python_version = "3.10"
 strict = true
 warn_unused_ignores = true
 
-[tool.mypy-sounddevice]
-ignore_missing_imports = true
-
-[tool.mypy-soundfile]
-ignore_missing_imports = true
-
-[tool.mypy-torch]
-ignore_missing_imports = true
-
-[tool.mypy-torchaudio]
-ignore_missing_imports = true
-
-[tool.mypy-df]
-ignore_missing_imports = true
-
-[tool.mypy-onnx]
-ignore_missing_imports = true
-
-[tool.mypy-pesq]
-ignore_missing_imports = true
-
-[tool.mypy-pystoi]
+# Per-module overrides MUST use the [[tool.mypy.overrides]] array-of-tables form when
+# configured via pyproject.toml. The legacy `[tool.mypy-<module>]` syntax is the
+# `mypy.ini` / `setup.cfg` format and is silently ignored when read from pyproject.
+[[tool.mypy.overrides]]
+module = [
+  "df",
+  "deepfilternet",
+  "onnx",
+  "onnxruntime",
+  "pesq",
+  "pesq.pesq",
+  "pystoi",
+  "rich",
+  "rich.console",
+  "scipy",
+  "scipy.signal",
+  "sounddevice",
+  "soundfile",
+  "torch",
+  "torchaudio",
+  "typer",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
