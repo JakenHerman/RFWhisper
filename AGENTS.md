@@ -4,6 +4,8 @@
 
 If you are an AI agent reading this: **read the whole file before writing code.** It contains the canonical tech stack, latency budgets, testability rules, and the specialized role-based system prompts you should load when working on different parts of the project.
 
+> **If you edit this file**, condensed slices live at [`.github/copilot-instructions.md`](./.github/copilot-instructions.md) (Copilot Workspace / Chat) and [`.cursor/rules.md`](./.cursor/rules.md) (Cursor) for tools that don't auto-load AGENTS.md. When you change §Prime Directives, §Shared Context, §Real-Time Constraints, or the cited roadmap gates (A2 / A3), update both slice files in the same PR to keep them in sync.
+
 ---
 
 ## Table of Contents

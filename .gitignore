@@ -270,7 +270,8 @@ $RECYCLE.BIN/
 .idea/
 .vscode/
 .claude/
-.cursor/
+.cursor/*
+!.cursor/rules.md
 .aider*
 !.vscode/settings.json.example
 !.vscode/extensions.json.example
