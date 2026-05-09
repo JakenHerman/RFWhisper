@@ -1,4 +1,4 @@
-"""Denoise engines: DeepFilterNet (optional), ONNXRuntime (when graph is supported), spectral stub."""
+"""Denoise engine implementations for model-backed and fallback processing."""
 
 from __future__ import annotations
 
