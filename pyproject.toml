@@ -11,7 +11,6 @@ license = "GPL-3.0-or-later"
 requires-python = ">=3.10"
 authors = [{ name = "RFWhisper contributors" }]
 classifiers = [
-  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
   "Programming Language :: Python :: 3",
   "Topic :: Communications :: Ham Radio",
 ]
