@@ -7,7 +7,7 @@ name = "rfwhisper"
 version = "0.1.0a1"
 description = "Real-time AI denoising for ham radio (local-first, GPLv3+)"
 readme = "README.md"
-license = { text = "GPL-3.0-or-later" }
+license = "GPL-3.0-or-later"
 requires-python = ">=3.10"
 authors = [{ name = "RFWhisper contributors" }]
 classifiers = [
