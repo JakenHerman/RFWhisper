@@ -163,16 +163,14 @@ def _resolve_intra_op_threads() -> int:
         n = int(raw)
     except ValueError:
         warnings.warn(
-            f"{_INTRA_OP_ENV_VAR}={raw!r} is not an int; "
-            f"using default {_DEFAULT_INTRA_OP_THREADS}",
+            f"{_INTRA_OP_ENV_VAR}={raw!r} is not an int; using default {_DEFAULT_INTRA_OP_THREADS}",
             RuntimeWarning,
             stacklevel=3,
         )
         return _DEFAULT_INTRA_OP_THREADS
     if n < 1:
         warnings.warn(
-            f"{_INTRA_OP_ENV_VAR}={n} must be >= 1; "
-            f"using default {_DEFAULT_INTRA_OP_THREADS}",
+            f"{_INTRA_OP_ENV_VAR}={n} must be >= 1; using default {_DEFAULT_INTRA_OP_THREADS}",
             RuntimeWarning,
             stacklevel=3,
         )
