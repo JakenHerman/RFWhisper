@@ -10,7 +10,7 @@ import time
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -60,7 +60,7 @@ class TorchDfEngine(DenoiseEngine):
     """Uses upstream `deepfilternet` + torch (see https://github.com/Rikorose/DeepFilterNet)."""
 
     def __init__(self) -> None:
-        from df import enhance, init_df  # type: ignore[import-untyped]
+        from df import enhance, init_df
 
         self._enhance = enhance
         # Shipped default is usually DeepFilterNet2/3 per wheel; set env / checkpoint in training.
@@ -83,7 +83,7 @@ class TorchDfEngine(DenoiseEngine):
         y = out.squeeze(0).cpu().numpy().astype(np.float32)
         if sr != target:
             y = to_native_rate(y, target, sr)
-        return y
+        return cast(np.ndarray, y)
 
 
 class OnnxOrtEngine(DenoiseEngine):
@@ -94,7 +94,7 @@ class OnnxOrtEngine(DenoiseEngine):
     """
 
     def __init__(self, onnx_path: Path) -> None:
-        import onnxruntime as ort  # type: ignore[import-untyped]
+        import onnxruntime as ort
 
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = int(os.environ.get("RFWHISPER_ORT_INTRA_OP", "2"))
@@ -119,7 +119,7 @@ class OnnxOrtEngine(DenoiseEngine):
         y = np.squeeze(out).astype(np.float32)
         if sr != self.native_sr:
             y = to_native_rate(y, self.native_sr, sr)
-        return y
+        return cast(np.ndarray, y)
 
 
 def select_engine(model: str) -> DenoiseEngine:

@@ -12,6 +12,8 @@ edge artefacts that would surface in the streaming path.
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from numpy.typing import NDArray
 from scipy.signal import resample_poly
@@ -32,7 +34,7 @@ def _require_mono_1d(x: np.ndarray) -> np.ndarray:
     return x
 
 
-def to_native_rate(x: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
+def to_native_rate(x: np.ndarray, sr_in: int, sr_out: int) -> NDArray[np.float32]:
     """
     Resample 1-D float audio from `sr_in` to `sr_out` with polyphase `resample_poly`.
 
@@ -40,12 +42,12 @@ def to_native_rate(x: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
     `sr_in == sr_out` the input is returned as a float32 view (no copy where possible).
     """
     if sr_in == sr_out:
-        return np.asarray(x, dtype=np.float32)
+        return cast("NDArray[np.float32]", np.asarray(x, dtype=np.float32))
     g = np.gcd(sr_in, sr_out)
     up = sr_out // g
     down = sr_in // g
     y = resample_poly(np.asarray(x, dtype=np.float64), up, down)
-    return y.astype(np.float32, copy=False)
+    return cast("NDArray[np.float32]", y.astype(np.float32, copy=False))
 
 
 def next_chunk_size(block: int, sr_in: int, sr_out: int) -> int:
