@@ -10,8 +10,8 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Annotated
 
-import numpy as np
 import soundfile as sf
 import typer
 from rich import print
@@ -52,13 +52,14 @@ def _measure_file(path: Path, model: str, block: int) -> LatencyReport:
 
 @app.command("file")
 def latency_file(
-    path: Path = typer.Argument(..., exists=True),
+    path: Annotated[Path, typer.Argument(..., exists=True)],
     model: str = "spectral_stub",
     block: int = 480,
 ) -> None:
     r = _measure_file(path, model, block)
     print(
-        f"[green]p50={r.p50_ms:.2f} ms p99={r.p99_ms:.2f} ms n={r.n_chunks} (processing only)[/green]"
+        f"[green]p50={r.p50_ms:.2f} ms p99={r.p99_ms:.2f} "
+        f"ms n={r.n_chunks} (processing only)[/green]"
     )
     if r.p99_ms > 30 and model == "deepfilternet3":
         print(
