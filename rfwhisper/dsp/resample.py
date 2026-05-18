@@ -45,7 +45,7 @@ def to_native_rate(x: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
     up = sr_out // g
     down = sr_in // g
     y = resample_poly(np.asarray(x, dtype=np.float64), up, down)
-    return y.astype(np.float32, copy=False)
+    return np.asarray(y, dtype=np.float32)
 
 
 def next_chunk_size(block: int, sr_in: int, sr_out: int) -> int:
