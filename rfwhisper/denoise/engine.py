@@ -1,4 +1,6 @@
-"""Denoise engines: DeepFilterNet (optional), ONNXRuntime (when graph is supported), spectral stub."""
+"""
+Denoise engines: DeepFilterNet (optional), ONNXRuntime, and spectral stub.
+"""
 
 from __future__ import annotations
 
@@ -58,7 +60,7 @@ class TorchDfEngine(DenoiseEngine):
     """Uses upstream `deepfilternet` + torch (see https://github.com/Rikorose/DeepFilterNet)."""
 
     def __init__(self) -> None:
-        from df import enhance, init_df  # type: ignore[import-untyped]
+        from df import enhance, init_df
 
         self._enhance = enhance
         # Shipped default is usually DeepFilterNet2/3 per wheel; set env / checkpoint in training.
@@ -78,7 +80,7 @@ class TorchDfEngine(DenoiseEngine):
         t = torch.from_numpy(x).unsqueeze(0)
         with torch.inference_mode():
             out = self._enhance(self._model, self._state, t)
-        y = out.squeeze(0).cpu().numpy().astype(np.float32)
+        y: np.ndarray = out.squeeze(0).cpu().numpy().astype(np.float32)
         if sr != target:
             y = to_native_rate(y, target, sr)
         return y
@@ -92,7 +94,7 @@ class OnnxOrtEngine(DenoiseEngine):
     """
 
     def __init__(self, onnx_path: Path) -> None:
-        import onnxruntime as ort  # type: ignore[import-untyped]
+        import onnxruntime as ort
 
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = int(os.environ.get("RFWHISPER_ORT_INTRA_OP", "2"))
@@ -114,7 +116,7 @@ class OnnxOrtEngine(DenoiseEngine):
         xb = x.reshape(1, -1) if len(shape) == 2 else x
         feeds: dict[str, Any] = {name: xb.astype(np.float32)}
         out = self._sess.run(None, feeds)[0]
-        y = np.squeeze(out).astype(np.float32)
+        y: np.ndarray = np.squeeze(out).astype(np.float32)
         if sr != self.native_sr:
             y = to_native_rate(y, self.native_sr, sr)
         return y

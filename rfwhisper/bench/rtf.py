@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Annotated
 
 import soundfile as sf
 import typer
@@ -14,7 +15,7 @@ app = typer.Typer(help="RTF (wall/audio) on a WAV file.")
 
 @app.command("file")
 def rtf_file(
-    path: Path = typer.Argument(..., exists=True),
+    path: Annotated[Path, typer.Argument(exists=True)],
     model: str = "spectral_stub",
 ) -> None:
     from rfwhisper.denoise.engine import select_engine

@@ -20,13 +20,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from rfwhisper.models.base import Model
+from rfwhisper.models.null_model import NullModel
+
 # Default per AGENTS §Real-Time Constraints; override via `RFWHISPER_ORT_INTRA_OP`
 # (matches the knob already advertised by `denoise/engine.py:OnnxOrtEngine`).
 _DEFAULT_INTRA_OP_THREADS: int = 2
 _INTRA_OP_ENV_VAR: str = "RFWHISPER_ORT_INTRA_OP"
-
-from rfwhisper.models.base import Model
-from rfwhisper.models.null_model import NullModel
 
 
 def _import_onnxruntime() -> Any:
