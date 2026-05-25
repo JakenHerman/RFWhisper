@@ -1,4 +1,6 @@
-"""Denoise engines: DeepFilterNet (optional), ONNXRuntime (when graph is supported), spectral stub."""
+"""
+Denoise engines: DeepFilterNet (optional), ONNXRuntime, and spectral stub.
+"""
 
 from __future__ import annotations
 
