@@ -54,5 +54,5 @@ def wiener_like_denoise(x: np.ndarray, sr: int) -> np.ndarray:
     nz = wsum > 1e-12
     out[nz] /= wsum[nz]
     if pad:
-        out = out[: -pad]
+        out = out[:-pad]
     return out.astype(np.float32, copy=False)
