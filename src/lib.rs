@@ -9,3 +9,4 @@ pub mod denoise;
 pub mod dsp;
 pub mod models;
 pub mod realtime;
+pub mod samples;

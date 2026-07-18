@@ -145,16 +145,18 @@ notebooks/         Training + analysis notebooks
 5. **Sign off** your commits with `git commit -s` (DCO). See [Licensing & Copyright](#licensing--copyright).
 6. **Push** and open a PR against `master`.
 
-### Pull Request Template (summary)
+### Pull Request Template
 
-Every PR description must include:
+The repo template ([.github/PULL_REQUEST_TEMPLATE.md](./.github/PULL_REQUEST_TEMPLATE.md)) is mandatory. In particular:
 
+- **Testing criteria** — exact commands a reviewer runs and the observable result that counts as a pass. If the change needs signal/noise audio, generate it deterministically with `rfwhisper samples synth` (seeded — same flags, same file); don't assume sample files exist.
+- **Physical-device verification** — any realtime / audio-path change must name the hardware it was run against (`rfwhisper audio list` indices), the exact `denoise-live` invocation, and what was observed. If you couldn't run on hardware, say so explicitly — a reviewer with hardware must before merge.
 - **Which roadmap criterion** this moves forward (e.g., "Refs A2, C1").
 - **What you measured** — hardware, numbers before/after, p50/p99 latency if realtime.
 - **Regression evidence** — paste the output of the `gate_cw_transient` and `gate_ft8_regression` acceptance tests (or note why N/A).
-- **Platforms tested** — Linux / macOS / Windows / RPi 5 / other SBC.
 - **Follow-ups** — issues you opened for work you deliberately deferred.
-- **Checklist**: tests added, docs updated, CI green, signed off.
+
+Vague PRs without runnable verification steps will be sent back, not merged.
 
 **No PR is merged without green CI.** Never disable a test to make CI pass. If a test is wrong, fix the test in a separate PR and justify it.
 
