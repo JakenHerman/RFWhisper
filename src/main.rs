@@ -45,6 +45,98 @@ enum Command {
         #[command(subcommand)]
         command: BenchCommand,
     },
+    /// Deterministic synthetic test signals (refs #19).
+    Samples {
+        #[command(subcommand)]
+        command: SamplesCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum SamplesCommand {
+    /// Generate a test WAV (seeded — same flags always produce the same file).
+    Synth(SynthArgs),
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+enum SignalKind {
+    /// AM-modulated tone stack standing in for SSB speech.
+    Speech,
+    /// Keyed 600 Hz CW ("CQ", 5 ms raised-cosine edges).
+    Cw,
+    /// Gaussian white noise.
+    White,
+    /// 60 Hz powerline buzz + harmonics + hash.
+    Powerline,
+    /// Atmospheric-QRN static crashes.
+    Impulses,
+    /// clean + noise mixed at --snr-db (see --clean / --noise).
+    Mix,
+}
+
+#[derive(Args)]
+struct SynthArgs {
+    #[arg(long, value_enum)]
+    kind: SignalKind,
+    #[arg(long, short)]
+    out: PathBuf,
+    #[arg(long, default_value_t = 5.0)]
+    seconds: f64,
+    #[arg(long, default_value_t = 48_000)]
+    sr: u32,
+    #[arg(long, default_value_t = 7)]
+    seed: u64,
+    /// For --kind mix: the clean component.
+    #[arg(long, value_enum, default_value = "speech")]
+    clean: SignalKind,
+    /// For --kind mix: the noise component.
+    #[arg(long, value_enum, default_value = "powerline")]
+    noise: SignalKind,
+    /// For --kind mix: target SNR of clean vs noise, in dB.
+    #[arg(long, default_value_t = 0.0)]
+    snr_db: f64,
+    /// For --kind mix: also write the clean reference here (for denoise --reference).
+    #[arg(long)]
+    clean_out: Option<PathBuf>,
+}
+
+fn synth_signal(kind: SignalKind, n: usize, sr: u32, seed: u64) -> Result<Vec<f32>, String> {
+    use rfwhisper::samples;
+    Ok(match kind {
+        SignalKind::Speech => samples::speech_like(n, sr, seed),
+        SignalKind::Cw => samples::cw(n, sr, 20),
+        SignalKind::White => samples::white(n, seed),
+        SignalKind::Powerline => samples::powerline(n, sr, seed),
+        SignalKind::Impulses => samples::impulses(n, sr, seed),
+        SignalKind::Mix => return Err("mix cannot be a mix component".into()),
+    })
+}
+
+fn cmd_samples_synth(args: SynthArgs) -> Result<(), String> {
+    use rfwhisper::samples;
+    let n = (args.seconds * args.sr as f64) as usize;
+    let signal = match args.kind {
+        SignalKind::Mix => {
+            let clean = synth_signal(args.clean, n, args.sr, args.seed)?;
+            let noise = synth_signal(args.noise, n, args.sr, args.seed.wrapping_add(1))?;
+            if let Some(clean_out) = &args.clean_out {
+                samples::write_wav(clean_out, &clean, args.sr)?;
+                println!("wrote clean reference {}", clean_out.display());
+            }
+            samples::mix_at_snr(&clean, &noise, args.snr_db)
+        }
+        kind => synth_signal(kind, n, args.sr, args.seed)?,
+    };
+    samples::write_wav(&args.out, &signal, args.sr)?;
+    println!(
+        "wrote {} ({:?}, {:.1}s @ {} Hz, seed {})",
+        args.out.display(),
+        args.kind,
+        args.seconds,
+        args.sr,
+        args.seed
+    );
+    Ok(())
 }
 
 #[derive(Args)]
@@ -279,6 +371,9 @@ fn main() -> ExitCode {
                 })
                 .map_err(|e| e.to_string()),
         },
+        Command::Samples {
+            command: SamplesCommand::Synth(args),
+        } => cmd_samples_synth(args).map(|()| 0),
     };
     match result {
         Ok(code) => ExitCode::from(code.clamp(0, 255) as u8),
