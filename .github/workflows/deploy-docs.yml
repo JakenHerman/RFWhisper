@@ -24,8 +24,8 @@ on:
   push:
     branches: [master]
     tags: ['v*.*.*']
+  # Unfiltered so stacked PRs get a docs build too — see basic-ci.yml for the rationale.
   pull_request:
-    branches: [master]
   workflow_dispatch:
   schedule:
     # Nightly rebuild catches drift if upstream dependencies silently change.
