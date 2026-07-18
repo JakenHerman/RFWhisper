@@ -16,8 +16,8 @@ fn rms(x: &[f32]) -> f64 {
 
 /// Stationary noise must be attenuated in the steady-state interior (the stub's
 /// Wiener-ish mask sits well below 1 on noise-only bins). The first/last window is
-/// excluded: the stub inherits the Python original's OLA edge artifact, where masked
-/// frames divided by a near-zero window-sum can overshoot at the signal boundaries.
+/// excluded so the measurement reflects steady state, not the attenuated
+/// partial-overlap boundaries (see `test_stub_boundaries_do_not_overshoot`).
 #[test]
 fn test_stub_attenuates_stationary_noise_interior() {
     let n = 2 * SR as usize;
