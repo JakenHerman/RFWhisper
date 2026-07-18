@@ -75,6 +75,9 @@ git lfs install    # required for samples/ and models/
 cargo build
 cargo test
 
+# Pre-commit hooks (mirror the CI fast lane: fmt, clippy, whitespace/yaml checks)
+pre-commit install    # get pre-commit via pipx/pip/brew if you don't have it
+
 # Pull pre-converted ONNX models
 cargo run -- models fetch
 ```
