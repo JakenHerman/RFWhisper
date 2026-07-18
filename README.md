@@ -123,6 +123,8 @@ And because it's **local-first** and **open-source (GPLv3)**, you can:
 
 **Why ONNX Runtime?** Cross-platform, great CPU performance with XNNPACK/CoreML/DirectML, optional CUDA/TensorRT/ROCm on beefier rigs, and it lets the community swap in new models without recompiling anything.
 
+**Why Rust?** The runtime (DSP, realtime audio, CLI) is a single static binary — no interpreter, no virtualenv, no GC pauses in the audio path. `cargo build --release` and you can drop it on a Pi in a POTA tent. Model *training* stays in Python/PyTorch where the ML ecosystem lives; the two meet at the ONNX boundary. (Fitting, since DeepFilterNet's own realtime reference implementation is Rust.)
+
 ---
 
 ## Quick Start
@@ -131,8 +133,8 @@ And because it's **local-first** and **open-source (GPLv3)**, you can:
 
 ### Prerequisites
 
-- Python 3.10–3.12
-- A working audio stack (PortAudio / WASAPI / CoreAudio / ALSA or JACK)
+- The Rust toolchain (stable, via [rustup](https://rustup.rs/))
+- A working audio stack (WASAPI / CoreAudio / ALSA or JACK; `libasound2-dev` to build on Linux)
 - (Optional) A virtual audio cable:
   - **Windows:** [VB-Cable](https://vb-audio.com/Cable/)
   - **macOS:** [BlackHole](https://existential.audio/blackhole/) (`brew install blackhole-2ch`)
@@ -143,10 +145,9 @@ And because it's **local-first** and **open-source (GPLv3)**, you can:
 ```bash
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[audio]"
+cargo build --release          # single static binary at target/release/rfwhisper
 # Pull the pre-converted ONNX models (DeepFilterNet3 + ham-tuned RNNoise)
-python -m rfwhisper.models.fetch
+cargo run --release -- models fetch
 ```
 
 ### Denoise a WAV file (offline A/B)

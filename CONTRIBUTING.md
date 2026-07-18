@@ -54,58 +54,55 @@ If you want to do something big, file an issue or start a GitHub Discussion firs
 ### Prerequisites
 
 - **Git** (and `git-lfs` for samples / models)
-- **Python 3.10, 3.11, or 3.12**
+- **Rust** (stable toolchain via [rustup](https://rustup.rs/); MSRV is pinned in `Cargo.toml`)
 - A working audio stack:
-  - **Linux**: ALSA + PipeWire or JACK
+  - **Linux**: ALSA + PipeWire or JACK (`libasound2-dev` for building)
   - **macOS**: CoreAudio (built in); BlackHole for virtual cable
   - **Windows**: WASAPI (built in); VB-Cable for virtual cable
 - **For v0.2+ work:** GNU Radio 3.10.x with `gr-soapy`, `gr-dnn`, and SoapySDR modules for any SDR you own
-- **C++ toolchain** if you're touching native blocks (`gcc` / `clang` / MSVC, CMake ≥ 3.20)
+- **C++ toolchain** if you're touching native GR blocks (`gcc` / `clang` / MSVC, CMake ≥ 3.20)
+- **Python 3.10+** only if you're working on the training pipeline (`train/`)
 - Optional: a GPU (CUDA / CoreML / DirectML) for faster inference and training
 
-### Clone & Install (dev)
+### Clone & Build (dev)
 
 ```bash
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
 git lfs install    # required for samples/ and models/
 
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -U pip wheel
-
-# Install with all dev + audio dependencies
-pip install -e ".[dev,audio]"
-
-# Pre-commit hooks (formatting, linting, basic checks)
-pre-commit install
+# Debug build + all tests
+cargo build
+cargo test
 
 # Pull pre-converted ONNX models
-python -m rfwhisper.models.fetch
+cargo run -- models fetch
 ```
 
 ### Run the test suite
 
 ```bash
-# Fast unit tests
-pytest -q
+# Fast unit + integration tests
+cargo test
 
-# Full acceptance harness (audio quality tests - slow)
-pytest -q tests/audio/ --runslow
+# Lints (CI enforces both)
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+
+# Full acceptance harness (audio quality gates — slow; needs models + samples)
+cargo test --release -- --ignored gate_
 ```
-
-If you don't have the audio dev dependencies set up yet, `pip install -e ".[audio,dev]"` pulls `sounddevice`, `soundfile`, `numpy`, `scipy`, `onnxruntime`, `pytest`, `ruff`, `mypy`, and friends.
 
 ### Smoke test
 
 ```bash
-rfwhisper denoise \
+cargo run --release -- denoise \
   --input  samples/noisy_40m_ssb.wav \
   --output /tmp/cleaned.wav \
   --model  deepfilternet3 \
   --report /tmp/report.json
 
-cat /tmp/report.json   # effective SNR gain, RTF, latency, etc.
+cat /tmp/report.json   # RTF, seconds of audio, model used, etc.
 ```
 
 ---
@@ -115,10 +112,11 @@ cat /tmp/report.json   # effective SNR gain, RTF, latency, etc.
 See [AGENTS.md § Repo Layout](./AGENTS.md#shared-context-tech-stack--constraints) for the canonical tree. The short version:
 
 ```
-rfwhisper/         Python package (CLI, DSP, models, realtime, GUI, training)
+src/               Rust crate (CLI, DSP, denoise engines, models, realtime, GUI)
+train/             Python training / fine-tuning pipeline (PyTorch; v0.5)
 gr-rfwhisper/      GNU Radio OOT module (C++ blocks; v0.2+)
 flowgraphs/        .grc + generated .py (v0.2+)
-tests/audio/       Acceptance harness tied to ROADMAP criteria
+tests/             Integration tests + acceptance harness tied to ROADMAP criteria
 samples/           Seed audio (Git LFS)
 models/            ONNX models (Git LFS or fetched at runtime)
 docs/              Tutorials, architecture, hardware matrix
@@ -130,7 +128,7 @@ notebooks/         Training + analysis notebooks
 ## Workflow (Branching, Commits, PRs)
 
 1. **Fork** the repo (or get write access for trusted maintainers).
-2. **Branch** off `main`. Naming: `<type>/<short-slug>`, e.g. `feat/rnnoise-int8`, `fix/macos-audio-device-picker`, `docs/rpi5-quickstart`.
+2. **Branch** off `master`. Naming: `<type>/<short-slug>`, e.g. `feat/rnnoise-int8`, `fix/macos-audio-device-picker`, `docs/rpi5-quickstart`.
 3. **Commit** using [Conventional Commits](https://www.conventionalcommits.org/):
    - `feat: ` new user-facing functionality
    - `fix: ` bug fix
@@ -142,7 +140,7 @@ notebooks/         Training + analysis notebooks
    - `chore: ` everything else
 4. **Reference the roadmap criterion** in the commit body, e.g. `refs A4` or `closes #123 (criterion B3)`.
 5. **Sign off** your commits with `git commit -s` (DCO). See [Licensing & Copyright](#licensing--copyright).
-6. **Push** and open a PR against `main`.
+6. **Push** and open a PR against `master`.
 
 ### Pull Request Template (summary)
 
@@ -150,7 +148,7 @@ Every PR description must include:
 
 - **Which roadmap criterion** this moves forward (e.g., "Refs A2, C1").
 - **What you measured** — hardware, numbers before/after, p50/p99 latency if realtime.
-- **Regression evidence** — paste the output of `tests/audio/cw_transient_test.py` and `tests/audio/ft8_regression_test.py` (or note why N/A).
+- **Regression evidence** — paste the output of the `gate_cw_transient` and `gate_ft8_regression` acceptance tests (or note why N/A).
 - **Platforms tested** — Linux / macOS / Windows / RPi 5 / other SBC.
 - **Follow-ups** — issues you opened for work you deliberately deferred.
 - **Checklist**: tests added, docs updated, CI green, signed off.
@@ -177,17 +175,16 @@ RFWhisper is a **testable-success** project. Every feature is pinned to a criter
 
 | Tier | Command | When it runs |
 |---|---|---|
-| Unit | `pytest -q` | Every push + PR |
-| Lint / format | `ruff check && ruff format --check` | Every push + PR |
-| Type check | `mypy rfwhisper` | Every push + PR |
-| Audio quality (slow) | `pytest tests/audio/ --runslow` | Nightly + PRs touching `rfwhisper/{dsp,models,realtime}/` |
-| Latency probe | `python -m rfwhisper.bench latency` | Nightly on self-hosted runners (reference hardware) |
+| Unit + integration | `cargo test` | Every push + PR |
+| Lint / format | `cargo fmt --check && cargo clippy --all-targets -- -D warnings` | Every push + PR |
+| Audio quality (slow) | `cargo test --release -- --ignored gate_` | Nightly + on-demand |
+| Latency probe | `rfwhisper bench latency <wav>` | Nightly on self-hosted runners (reference hardware) |
 | Integration (SDR) | Manual, documented in PR | When flowgraphs change |
 
 ### The two non-regression gates (always run)
 
-1. **CW keying transients** (`tests/audio/cw_transient_test.py`) — RMS in the keying-onset window must be within ±1 dB of raw.
-2. **FT8 decodes** (`tests/audio/ft8_regression_test.py`) — decoder must recover ≥ the number of stations that the raw audio gives, with zero false decodes.
+1. **CW keying transients** (`gate_cw_transient`) — RMS in the keying-onset window must be within ±1 dB of raw.
+2. **FT8 decodes** (`gate_ft8_regression`) — decoder must recover ≥ the number of stations that the raw audio gives, with zero false decodes.
 
 If you break either, your PR will be blocked. These gates are why we exist.
 
@@ -195,16 +192,16 @@ If you break either, your PR will be blocked. These gates are why we exist.
 
 ## Style Guides
 
-### Python
+### Rust
 
-- Formatter: `ruff format`
-- Linter: `ruff check`
-- Type checker: `mypy --strict` on new code in `rfwhisper/` (existing gaps are tracked)
-- Docstrings: Google style
-- Import order: stdlib / third-party / local, separated by blank lines (ruff handles this)
-- No `from foo import *`
+- Edition 2021; stable toolchain (MSRV pinned in `Cargo.toml`)
+- Formatter: `cargo fmt` (enforced in CI)
+- Linter: `cargo clippy --all-targets -- -D warnings`
+- Errors: `Result` + `thiserror` in the library; no `unwrap()` in runtime paths (tests are fine)
+- No allocations or blocking in audio callbacks (see AGENTS.md § Real-Time Constraints)
+- Doc comments on public items; module docs explain the "why"
 
-### C++
+### C++ (GR blocks)
 
 - Standard: C++17 minimum
 - Formatter: `clang-format` using the project `.clang-format` (LLVM base, 4-space indent)
@@ -212,10 +209,10 @@ If you break either, your PR will be blocked. These gates are why we exist.
 - RAII everything. No raw owning pointers.
 - No exceptions in the audio callback path.
 
-### Rust (if used)
+### Python (training pipeline only)
 
-- Edition 2021
-- `rustfmt` and `clippy -D warnings`
+- Formatter: `ruff format`; linter: `ruff check`; `mypy --strict` on new code
+- Docstrings: Google style
 
 ### Commit messages
 

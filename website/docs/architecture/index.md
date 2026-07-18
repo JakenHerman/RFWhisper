@@ -51,13 +51,13 @@ Every buffer is **preallocated at startup** to the worst-case frame size. Audio 
 
 ### DSP (classical)
 
-Lives in `rfwhisper/dsp/`. Windowing, STFT (via liquid-dsp), polyphase resampling, pre/de-emphasis, overlap-add, and the adaptive narrowband notch (v0.3). VOLK kernels for the kernels that matter.
+Lives in `src/dsp/`. Windowing, STFT (via rustfft/realfft), polyphase resampling, pre/de-emphasis, overlap-add, and the adaptive narrowband notch (v0.3). VOLK kernels for the kernels that matter.
 
 → [Signal Flow](./signal-flow) for the detailed block-by-block view.
 
 ### Inference
 
-Lives in `rfwhisper/models/`. Thin ONNX Runtime wrapper:
+Lives in `src/models/`. Thin ONNX Runtime wrapper:
 
 - Providers chosen in order: CoreML → DirectML → CUDA → XNNPACK → CPU.
 - Session options: `intra_op_num_threads` tuned per target, `inter_op_num_threads = 1`, `enable_cpu_mem_arena=True`.
@@ -68,7 +68,7 @@ Lives in `rfwhisper/models/`. Thin ONNX Runtime wrapper:
 
 ### Real-time runtime
 
-Lives in `rfwhisper/realtime/`. PortAudio / WASAPI / CoreAudio / ALSA backends with a unified callback surface. Lock-free SPSC rings between stages. HDR histograms for p50/p95/p99.
+Lives in `src/realtime/`. cpal (WASAPI / CoreAudio / ALSA / JACK) backends with a unified callback surface. Lock-free SPSC rings between stages. HDR histograms for p50/p95/p99.
 
 ### GNU Radio integration (v0.2+)
 
@@ -98,19 +98,20 @@ flowchart LR
 ## Where things live in the repo
 
 ```
-rfwhisper/
-├── constants.py            ← shared constants (rates, frame sizes, opset)
+src/
+├── constants.rs            ← shared constants (rates, frame sizes, opset)
 ├── dsp/                    ← classical DSP (windows, STFT, resample, notch)
+├── denoise/                ← engine trait, spectral stub, NN backends
 ├── models/                 ← ONNX loaders, providers, registry, fetch
-├── realtime/               ← audio backends, SPSC rings, scheduling
-├── profiles/               ← YAML per-mode (ssb.yaml, cw.yaml, ft8.yaml, …)
-├── gui/                    ← PySide6 app (v0.4)
-├── train/                  ← fine-tuning pipeline (v0.5)
+├── realtime/               ← audio backends, bounded queues, scheduling
+├── profiles/               ← YAML per-mode (ssb.yaml, cw.yaml, ft8.yaml, …) (v0.3)
+├── gui/                    ← native Rust GUI (egui; v0.4)
 ├── bench/                  ← latency probe, RTF, CPU, memory
-└── cli.py                  ← the rfwhisper command
+└── main.rs                 ← the rfwhisper command
+train/                      ← Python fine-tuning pipeline (PyTorch; v0.5)
 gr-rfwhisper/               ← GNU Radio OOT module (C++ + GRC YAML)
 flowgraphs/                 ← .grc + generated .py
-tests/audio/                ← acceptance harness tied to ROADMAP criteria
+tests/                      ← integration tests + acceptance harness (ROADMAP criteria)
 ```
 
 ## Dependencies at a glance
@@ -124,8 +125,9 @@ tests/audio/                ← acceptance harness tied to ROADMAP criteria
 | SIMD kernels | VOLK | GPLv3 |
 | Primary model | DeepFilterNet3 | MIT / Apache-2.0 |
 | Fallback model | RNNoise | BSD-3-Clause |
-| Audio backends | PortAudio / WASAPI / CoreAudio / ALSA | Varies (all permissive) |
-| GUI | PySide6 / Qt 6 | LGPL |
-| Packaging | PEP 621 `pyproject.toml` | — |
+| Audio backends | cpal (WASAPI / CoreAudio / ALSA / JACK) | Apache-2.0 |
+| FFT | rustfft / realfft | MIT/Apache-2.0 |
+| GUI | egui (Rust) | MIT/Apache-2.0 |
+| Packaging | Cargo (single static binary) | — |
 
 All GPLv3-compatible.

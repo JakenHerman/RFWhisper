@@ -35,7 +35,7 @@ We normalize numbers against these so you can compare apples to apples:
 
 ```bash
 # From a clean checkout (audio quality tests need --runslow)
-pytest -q tests/audio/ --runslow --junitxml=build/junit-audio.xml
+cargo test --release -- --ignored gate_
 
 # Generates JSON reports + spectrograms under build/audio-reports/
 rfwhisper bench report --out build/audio-reports/report.html
@@ -51,7 +51,7 @@ The HTML report has before/after spectrograms, per-criterion pass/fail, and late
 **Intent:** measurable, not just audible, improvement on a ham-speech-plus-noise mix.
 
 ```bash
-pytest -q tests/audio/snr_gain_test.py --runslow
+cargo test --release -- --ignored gate_snr_gain
 ```
 
 What it does: takes reference clean speech convolved with measured room IR, mixes with a catalog of real ham noise (powerline buzz, inverter rasp, PLC combs) at SNRs spanning −10 to +20 dB, runs RFWhisper, and computes effective SNR gain via matched-filter correlation against the clean reference.
@@ -63,7 +63,7 @@ What it does: takes reference clean speech convolved with measured room IR, mixe
 **Intent:** a denoiser that increases SNR but breaks decoders is worse than useless.
 
 ```bash
-pytest -q tests/audio/ft8_regression_test.py --runslow
+cargo test --release -- --ignored gate_ft8_regression
 ```
 
 What it does: replays a 15-minute FT8 cycle (multi-band, curated) through `jt9` (WSJT-X's decoder) twice — once raw, once denoised — and compares decode lists.
@@ -75,7 +75,7 @@ What it does: replays a 15-minute FT8 cycle (multi-band, curated) through `jt9` 
 **Intent:** never soften the operator's fist.
 
 ```bash
-pytest -q tests/audio/cw_transient_test.py --runslow
+cargo test --release -- --ignored gate_cw_transient
 ```
 
 What it does: feeds a 25 WPM CW recording with synthetic QRN crashes; measures RMS energy in the first 5 ms of every dit onset; compares raw vs denoised.
@@ -87,7 +87,7 @@ What it does: feeds a 25 WPM CW recording with synthetic QRN crashes; measures R
 **Intent:** real-time use in WSJT-X / fldigi / headphones.
 
 ```bash
-python -m rfwhisper.bench latency --duration 120 --out build/latency/
+rfwhisper bench latency samples/noisy_40m_ssb.wav --block 480
 ```
 
 What it does: injects an impulse train into the input device, records round-trip, measures p50 / p95 / p99 latency as an HDR histogram.
@@ -97,7 +97,7 @@ What it does: injects an impulse train into the input device, records round-trip
 ### A5 — Real-time factor
 
 ```bash
-python -m rfwhisper.bench rtf --iters 5000 --profile ssb
+rfwhisper bench rtf samples/noisy_40m_ssb.wav
 ```
 
 **Pass:** RTF &lt; 0.5 (i.e., headroom for other tasks) on reference CPU.
@@ -107,7 +107,7 @@ python -m rfwhisper.bench rtf --iters 5000 --profile ssb
 **Intent:** clean audio in, clean audio out. Don't damage high-SNR signals.
 
 ```bash
-pytest -q tests/audio/noop_quality_test.py --runslow
+cargo test --release -- --ignored gate_noop_quality
 ```
 
 **Pass:** PESQ drop ≤ 0.3, STOI drop ≤ 0.02 on a curated clean-speech set.

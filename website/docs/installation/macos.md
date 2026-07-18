@@ -18,7 +18,8 @@ Tested on macOS 13 (Ventura), 14 (Sonoma), and 15 (Sequoia) on Intel and Apple S
 ## 2. System dependencies
 
 ```bash
-brew install python@3.12 git git-lfs portaudio libsndfile ffmpeg cmake pkg-config
+brew install rustup git git-lfs ffmpeg pkg-config
+rustup-init -y                # Rust stable toolchain
 brew install blackhole-2ch    # virtual audio cable
 ```
 
@@ -45,16 +46,15 @@ Use **BlackHole 2ch** as RFWhisper's output device and as WSJT-X's input device.
 ```bash
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -U pip wheel
-pip install -e ".[audio]"
-python -m rfwhisper.models.fetch
+cargo build --release
+sudo install -m755 target/release/rfwhisper /usr/local/bin/
+rfwhisper models fetch
 rfwhisper doctor
 ```
 
 ## 5. Apple Silicon: CoreML acceleration
 
-`onnxruntime` on Apple Silicon includes the CoreML execution provider automatically. RFWhisper will prefer it when available:
+When the ONNX (DFN3) backend is enabled, RFWhisper prefers the CoreML execution provider on Apple Silicon automatically:
 
 ```bash
 rfwhisper info providers
@@ -72,7 +72,6 @@ macOS will prompt for **microphone access** the first time you run `rfwhisper de
 
 ## Troubleshooting
 
-- **`OSError: PortAudio library not found`** — `brew reinstall portaudio` and ensure your shell picks up `/opt/homebrew/bin` on the PATH (Apple Silicon) or `/usr/local/bin` (Intel).
 - **No sound through BlackHole** — verify the Multi-Output Device is selected as system output; check that input/output sample rates match (48 kHz is our default).
-- **`arm64` vs `x86_64` pip conflicts** — create your venv with the native Python (`which python3.12` should end in `/opt/homebrew/` on Apple Silicon).
-- **Rosetta** — not required. Do not install x86_64 Python on Apple Silicon; you'll lose CoreML.
+- **`cargo: command not found` after install** — restart your shell or `source "$HOME/.cargo/env"`.
+- **Rosetta** — not required. Build natively on Apple Silicon; you'll keep CoreML eligibility.
