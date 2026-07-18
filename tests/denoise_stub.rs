@@ -41,6 +41,40 @@ fn test_stub_attenuates_stationary_noise_interior() {
     );
 }
 
+/// Boundary regression for #110: the first/last window must not overshoot.
+/// Before the OLA divisor clamp, masked frames divided by a near-zero window-sum
+/// blew the boundary up to ~40x interior RMS.
+#[test]
+fn test_stub_boundaries_do_not_overshoot() {
+    let n = 2 * SR as usize;
+    let mut rng = TestRng::new(7);
+    let noisy: Vec<f32> = (0..n)
+        .map(|i| {
+            let t = i as f64 / SR as f64;
+            let sig = 0.5
+                * (2.0 * std::f64::consts::PI * 800.0 * t).sin()
+                * (0.6 + 0.4 * (2.0 * std::f64::consts::PI * 3.0 * t).sin());
+            (sig + 0.25 * rng.standard_normal()) as f32
+        })
+        .collect();
+
+    let mut eng = SpectralStubEngine;
+    let out = eng.process(&noisy, SR);
+
+    let edge = 512; // one stub FFT window at 48 kHz
+    let interior_rms = rms(&out[edge..n - edge]);
+    let head_rms = rms(&out[..edge]);
+    let tail_rms = rms(&out[n - edge..]);
+    assert!(
+        head_rms <= 2.0 * interior_rms,
+        "head rms {head_rms:.4} vs interior {interior_rms:.4}"
+    );
+    assert!(
+        tail_rms <= 2.0 * interior_rms,
+        "tail rms {tail_rms:.4} vs interior {interior_rms:.4}"
+    );
+}
+
 /// On a modulated two-tone + noise mix the stub must be roughly transparent to the
 /// signal in the interior (|gain| small): it's acceptance wiring, not a quality
 /// denoiser — the guarantee is "doesn't wreck the signal", not "+N dB".
