@@ -44,7 +44,8 @@ def to_native_rate(x: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
     g = np.gcd(sr_in, sr_out)
     up = sr_out // g
     down = sr_in // g
-    y = resample_poly(np.asarray(x, dtype=np.float64), up, down)
+    # scipy is untyped here, so pin the type rather than letting Any leak out.
+    y: np.ndarray = resample_poly(np.asarray(x, dtype=np.float64), up, down)
     return y.astype(np.float32, copy=False)
 
 

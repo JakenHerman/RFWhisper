@@ -53,7 +53,11 @@ repos:
           - numpy>=1.24
           - typer>=0.9
           - rich>=13.0
-        args: [--ignore-missing-imports]
+        # --no-warn-unused-ignores because --ignore-missing-imports resolves modules that
+        # do not exist yet (rfwhisper.models.dfn3, .rnnoise — issues #10 / #11) to Any,
+        # which makes their `type: ignore[import-not-found]` look redundant. The strict CI
+        # pass, which does not ignore missing imports, correctly reports them as needed.
+        args: [--ignore-missing-imports, --no-warn-unused-ignores]
 
 exclude: |
   (?x)^(
