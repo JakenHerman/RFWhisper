@@ -1,0 +1,28 @@
+# Local mirror of the CI fast lane (see .github/workflows/basic-ci.yml).
+# Install once per clone:  pre-commit install
+#
+# clippy here is the light local pass; `-D warnings` stays CI-only for speed.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt --check
+        entry: cargo fmt --check
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy --all-targets
+        language: system
+        types: [rust]
+        pass_filenames: false
