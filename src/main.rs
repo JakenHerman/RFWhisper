@@ -55,6 +55,9 @@ struct DenoiseArgs {
     output: PathBuf,
     #[arg(long, short, default_value = "deepfilternet3")]
     model: String,
+    /// Clean reference WAV; when given, the report includes snr_gain_db (A1).
+    #[arg(long)]
+    reference: Option<PathBuf>,
     #[arg(long)]
     report: Option<PathBuf>,
 }
@@ -118,10 +121,35 @@ fn resolve_model(name: &str) -> String {
     }
 }
 
-fn cmd_denoise(args: DenoiseArgs) -> Result<(), String> {
-    let (mono, sr) = bench::read_wav_mono(&args.input).map_err(|e| e.to_string())?;
+/// Exit codes per issue #16: 0 success, 2 unsupported input, 3 model load failure.
+const EXIT_BAD_INPUT: u8 = 2;
+const EXIT_MODEL_FAILURE: u8 = 3;
+
+fn read_mono_strict(path: &std::path::Path) -> Result<(Vec<f32>, u32), (u8, String)> {
+    let reader = hound::WavReader::open(path).map_err(|e| {
+        (
+            EXIT_BAD_INPUT,
+            format!("cannot read {}: {e}", path.display()),
+        )
+    })?;
+    if reader.spec().channels != 1 {
+        return Err((
+            EXIT_BAD_INPUT,
+            format!(
+                "{} has {} channels; rfwhisper denoise expects mono — split channels first",
+                path.display(),
+                reader.spec().channels
+            ),
+        ));
+    }
+    drop(reader);
+    bench::read_wav_mono(path).map_err(|e| (EXIT_BAD_INPUT, e.to_string()))
+}
+
+fn cmd_denoise(args: DenoiseArgs) -> Result<(), (u8, String)> {
+    let (mono, sr) = read_mono_strict(&args.input)?;
     let model = resolve_model(&args.model);
-    let mut eng = select_engine(&model).map_err(|e| e.to_string())?;
+    let mut eng = select_engine(&model).map_err(|e| (EXIT_MODEL_FAILURE, e.to_string()))?;
     let (y, stats) = eng.process_file(&mono, sr);
 
     let spec = hound::WavSpec {
@@ -130,31 +158,75 @@ fn cmd_denoise(args: DenoiseArgs) -> Result<(), String> {
         bits_per_sample: 32,
         sample_format: hound::SampleFormat::Float,
     };
-    let mut writer = hound::WavWriter::create(&args.output, spec).map_err(|e| e.to_string())?;
+    let io_err = |e: String| (1u8, e);
+    let mut writer =
+        hound::WavWriter::create(&args.output, spec).map_err(|e| io_err(e.to_string()))?;
     for v in &y {
-        writer.write_sample(*v).map_err(|e| e.to_string())?;
+        writer.write_sample(*v).map_err(|e| io_err(e.to_string()))?;
     }
-    writer.finalize().map_err(|e| e.to_string())?;
+    writer.finalize().map_err(|e| io_err(e.to_string()))?;
+
+    // snr_gain_db (A1): matched-filter gain of denoised vs noisy against the clean ref.
+    let snr_gain_db = match &args.reference {
+        None => serde_json::Value::Null,
+        Some(ref_path) => {
+            let (clean, ref_sr) = read_mono_strict(ref_path)?;
+            if ref_sr != sr {
+                return Err((
+                    EXIT_BAD_INPUT,
+                    format!("reference sample rate {ref_sr} != input sample rate {sr}"),
+                ));
+            }
+            let f64s = |v: &[f32]| v.iter().map(|x| *x as f64).collect::<Vec<f64>>();
+            let gain = rfwhisper::dsp::metrics::effective_snr_gain(
+                &f64s(&clean),
+                &f64s(&mono),
+                &f64s(&y),
+                sr,
+            )
+            .map_err(|e| (EXIT_BAD_INPUT, e.to_string()))?;
+            // JSON has no inf/nan; the sentinels degrade to null with a note on stdout.
+            if gain.is_finite() {
+                serde_json::json!(gain)
+            } else {
+                eprintln!("note: snr gain sentinel ({gain}); reported as null");
+                serde_json::Value::Null
+            }
+        }
+    };
 
     let rep = serde_json::json!({
         "model": model,
         "input": args.input.display().to_string(),
         "output": args.output.display().to_string(),
+        "sr": sr,
+        "duration_s": stats.seconds_audio,
+        "inference_time_ms": stats.wall_seconds * 1000.0,
         "rtf": stats.rtf(),
-        "seconds": stats.seconds_audio,
+        "snr_gain_db": snr_gain_db,
+        "spectrogram_path": serde_json::Value::Null,
     });
     let rendered = serde_json::to_string_pretty(&rep).expect("serialize report");
     println!("{rendered}");
     if let Some(report) = args.report {
-        std::fs::write(&report, &rendered).map_err(|e| e.to_string())?;
+        std::fs::write(&report, &rendered).map_err(|e| io_err(e.to_string()))?;
     }
     Ok(())
 }
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
+    if let Command::Denoise(args) = cli.command {
+        return match cmd_denoise(args) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err((code, msg)) => {
+                eprintln!("error: {msg}");
+                ExitCode::from(code)
+            }
+        };
+    }
     let result: Result<i32, String> = match cli.command {
-        Command::Denoise(args) => cmd_denoise(args).map(|()| 0),
+        Command::Denoise(_) => unreachable!("handled above"),
         Command::DenoiseLive(args) => realtime::stream_denoise(
             args.in_dev,
             args.out_dev,
