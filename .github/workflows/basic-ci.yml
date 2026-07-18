@@ -9,8 +9,11 @@ name: basic-ci
 on:
   push:
     branches: [master]
+  # No `branches:` filter on pull_request on purpose. That key filters on the *base*
+  # branch, so a stacked PR — one opened against another feature branch rather than
+  # master — would get no checks at all until its base merged. Every PR should be
+  # verifiable on its own.
   pull_request:
-    branches: [master]
   schedule:
     # Nightly run for longer audio-quality tests on main.
     - cron: "17 5 * * *"
