@@ -3,12 +3,12 @@ name: deploy-docs
 # Build and deploy the Docusaurus documentation site at website/ to GitHub Pages.
 # Public URL: https://rfwhisper.org (CNAME file in website/static/CNAME).
 #
-# - On every push to main: rebuild, resync all generated content (README
+# - On every push to master: rebuild, resync all generated content (README
 #   sections, ROADMAP, GRC → Mermaid, Python docstring API pages), and
 #   publish to gh-pages via the official actions/deploy-pages flow.
 # - On every tagged release (v*.*.*): also run `docusaurus docs:version <tag>`
 #   so release branches get pinned and remain reproducible (the "Next" version
-#   tracks main).
+#   tracks master).
 # - On pull requests: build only (no deploy), to surface broken links, MDX
 #   compile errors, or busted sync scripts before merge.
 #
@@ -22,10 +22,10 @@ name: deploy-docs
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: ['v*.*.*']
   pull_request:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
   schedule:
     # Nightly rebuild catches drift if upstream dependencies silently change.

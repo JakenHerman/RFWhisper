@@ -8,9 +8,9 @@ name: basic-ci
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
   schedule:
     # Nightly run for longer audio-quality tests on main.
     - cron: "17 5 * * *"
@@ -129,6 +129,41 @@ jobs:
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
+  # Which paths did this PR touch? The audio-quality gates are slow, so we only
+  # run them when the code or the gates themselves changed.
+  #
+  # This used to be inlined as
+  #   contains(github.event.pull_request.changed_files, 'rfwhisper/')
+  # which never matched: `changed_files` is an integer count in the PR payload,
+  # not a list of paths, so the audio gates silently never ran on any PR.
+  # ---------------------------------------------------------------------------
+  changes:
+    name: Detect relevant changes
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      audio: ${{ steps.filter.outputs.audio }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compare against the base branch
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "audio=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          base="origin/${{ github.base_ref }}"
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          if git diff --name-only "$base...HEAD" | grep -Eq '^(rfwhisper/|tests/)'; then
+            echo "audio=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "audio=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
   # Audio quality acceptance gates. These map 1:1 to ROADMAP.md criteria.
   # Tests are expected to live under tests/audio/ and use marker --runslow.
   #
@@ -144,8 +179,8 @@ jobs:
   # ---------------------------------------------------------------------------
   audio-quality:
     name: Audio quality gates (${{ matrix.os }})
-    needs: unit
-    if: github.event_name == 'schedule' || contains(github.event.pull_request.changed_files, 'rfwhisper/') || github.event_name == 'workflow_dispatch'
+    needs: [unit, changes]
+    if: needs.changes.outputs.audio == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -187,15 +222,32 @@ jobs:
         run: |
           python -m rfwhisper.models.fetch || echo "Model fetch not implemented yet (pre-v0.1)."
 
+      # A gate that has not been written yet must not fail the build, but a gate that
+      # exists and fails must. pytest exits 5 for "no tests collected" and 4 when the
+      # path is missing; both mean "not landed yet". Anything else is a real failure.
       - name: Run non-regression gates
         run: |
+          set +e
           pytest -q tests/audio/ -k "cw_transient or ft8_regression" \
             --runslow --maxfail=1 --durations=20
+          code=$?
+          if [ $code -eq 4 ] || [ $code -eq 5 ]; then
+            echo "::notice::No non-regression gates collected yet (pytest exit $code) — skipping."
+            exit 0
+          fi
+          exit $code
 
       - name: Run quality gates (SNR gain, no-op, RTF, latency)
         run: |
+          set +e
           pytest -q tests/audio/ -k "snr_gain or noop_quality or rtf or latency_probe" \
             --runslow --maxfail=1 --durations=20
+          code=$?
+          if [ $code -eq 4 ] || [ $code -eq 5 ]; then
+            echo "::notice::No quality gates collected yet (pytest exit $code) — skipping."
+            exit 0
+          fi
+          exit $code
 
       - name: Upload before/after artifacts + reports
         if: always()

@@ -76,7 +76,12 @@ select = ["E", "F", "I", "B", "UP", "N"]
 ignore = ["N818"]
 
 [tool.mypy]
-python_version = "3.10"
+# 3.12, not the 3.10 floor from requires-python. numpy >= 2.3 ships stubs written with
+# 3.12+ `type` statements; asking mypy to read them as 3.10 fails inside numpy itself
+# ("Type statement is only supported in Python 3.12 and greater") and aborts the run
+# before any of our code is checked. The 3.10 floor is still enforced — by the unit
+# matrix in basic-ci.yml, which actually runs the tests on 3.10.
+python_version = "3.12"
 strict = true
 warn_unused_ignores = true
 

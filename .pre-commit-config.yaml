@@ -1,0 +1,63 @@
+# Local mirror of the CI fast lane, so contributors catch lint/format/type problems
+# before pushing rather than after a red build.
+#
+#   pre-commit install          # once, per clone
+#   pre-commit run --all-files  # check everything now
+#
+# Strict mypy stays CI-only: it needs the full dependency set and is too slow for a
+# commit hook. The hook below is the light version — see .github/workflows/basic-ci.yml
+# for the authoritative check.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        # Markdown uses two trailing spaces as a hard line break.
+        args: [--markdown-linebreak-ext=md]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        # Model weights and sample audio belong in LFS or a release, not in git.
+        args: [--maxkb=1024]
+
+  # Deliberately NOT enabling `mixed-line-ending --fix=lf`: the repo has no
+  # .gitattributes normalising text, so Windows clones check out CRLF via
+  # core.autocrlf. That hook rewrites every file in the repo on a Windows machine,
+  # producing a diff that touches ~95 files and conflicts with everything in flight.
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.13.3
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.2
+    hooks:
+      - id: mypy
+        # Package code only. Tests use pytest fixtures and monkeypatching that strict
+        # mypy flags without much benefit; CI type-checks rfwhisper/ and that is the
+        # contract that matters.
+        files: ^rfwhisper/
+        # These three are what stops the hook reporting nonsense. Without typer every
+        # CLI command trips "Untyped decorator makes function untyped"; without numpy
+        # every array annotation degrades to Any. scipy is deliberately left out — it is
+        # a large install for a commit hook, and the errors it would resolve are the
+        # same ones the strict CI pass reports anyway.
+        additional_dependencies:
+          - numpy>=1.24
+          - typer>=0.9
+          - rich>=13.0
+        args: [--ignore-missing-imports]
+
+exclude: |
+  (?x)^(
+      website/docs/_generated/.*|
+      flowgraphs/.*\.py|
+      .*\.ipynb
+  )$
