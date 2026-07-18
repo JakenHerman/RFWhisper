@@ -16,6 +16,7 @@ const STEPS = [
   { name: 'readme',  script: 'sync-readme.mjs' },
   { name: 'roadmap', script: 'sync-roadmap.mjs' },
   { name: 'misc',    script: 'sync-misc.mjs' },
+  { name: 'docs',    script: 'sync-docs.mjs' },
   { name: 'grc',     script: 'grc-to-mermaid.mjs' },
   { name: 'api',     script: 'extract-api-docs.mjs' },
 ];

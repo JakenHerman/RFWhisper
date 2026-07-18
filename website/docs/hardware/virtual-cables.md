@@ -9,6 +9,11 @@ description: VB-Cable, BlackHole, JACK, PipeWire, snd-aloop — picking and conf
 
 RFWhisper emits clean audio to a *virtual audio cable*. WSJT-X, fldigi, JS8Call, your rig's logging software, or your headphones then read from that cable.
 
+:::tip Just want it working?
+This page compares the options. For step-by-step setup with WSJT-X configuration and
+troubleshooting, go to **[Virtual Cable Setup](/docs/next/virtual-cable-setup)**.
+:::
+
 ## Picking one
 
 | OS | Recommendation |
@@ -38,7 +43,7 @@ For more than one listener app (WSJT-X + JS8Call + speakers), install [VB-Voicem
 3. **+ → Create Multi-Output Device**, check **BlackHole 2ch** and **MacBook Pro Speakers** (or your external DAC).
 4. Rename to *RFW-Listen*.
 5. Select **RFW-Listen** as the system output when you want to hear RFWhisper through your speakers as well.
-6. In RFWhisper: `--out "BlackHole 2ch"`.
+6. In RFWhisper: `--out <index>`, using the BlackHole index from `rfwhisper audio list`.
 7. In WSJT-X: Input = **BlackHole 2ch**.
 
 ### BlackHole 16ch
@@ -56,10 +61,11 @@ pw-loopback \
   &
 ```
 
-Then:
+Then look up the indices and start it:
 
 ```bash
-rfwhisper denoise-live --in hw:0,0 --out "loopback" --profile ssb
+rfwhisper audio list
+rfwhisper denoise-live --in <radio index> --out <loopback index>
 ```
 
 WSJT-X will see the loopback as a normal input.
@@ -79,9 +85,13 @@ Lightweight, zero dependencies:
 sudo modprobe snd-aloop enable=1 index=10
 # Now two devices: Loopback,0 (playback) and Loopback,1 (capture) — symmetric
 
-rfwhisper denoise-live --in hw:0,0 --out hw:10,0,0 --profile ssb
-# WSJT-X input = hw:10,1,0
+rfwhisper audio list                                   # find the indices
+rfwhisper denoise-live --in <radio> --out <Loopback,0>
+# WSJT-X input = the Loopback,1 device
 ```
+
+`--in` / `--out` take PortAudio **device indices** (integers from `rfwhisper audio list`),
+not ALSA `hw:` strings.
 
 Persist across reboots by adding `snd-aloop` to `/etc/modules-load.d/snd-aloop.conf`.
 

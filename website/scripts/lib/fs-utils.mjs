@@ -1,9 +1,17 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-/** Resolve a path relative to the website/ root (regardless of cwd). */
+/**
+ * Resolve a path relative to the website/ root (regardless of cwd).
+ *
+ * Must use fileURLToPath, not `new URL(...).pathname`: on Windows the latter yields
+ * `/C:/Users/...`, and path.resolve then prepends the drive to give `C:\C:\Users\...`.
+ * That silently broke every sync script on Windows — they resolved to a directory that
+ * does not exist, found no input, and exited 0.
+ */
 export function siteRoot() {
-  return path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 }
 
 /** Resolve a path relative to the repository root (one up from website/). */

@@ -23,6 +23,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'quickstart/v0_1-test-guide',
+        'virtual-cable-setup',
       ],
     },
     {
