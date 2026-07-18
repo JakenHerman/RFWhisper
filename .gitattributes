@@ -1,0 +1,5 @@
+# Real on-air sample clips are binary and large — keep them out of the git object store.
+# The synthetic generators in rfwhisper/samples/synth.py are source, not fixtures, and
+# are deliberately NOT tracked here.
+samples/**/*.wav filter=lfs diff=lfs merge=lfs -text
+samples/**/*.flac filter=lfs diff=lfs merge=lfs -text
