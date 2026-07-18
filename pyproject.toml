@@ -66,6 +66,10 @@ Repository = "https://github.com/jakenherman/rfwhisper"
 [tool.setuptools.packages.find]
 include = ["rfwhisper*"]
 
+# Without this the wheel ships no manifest and `rfwhisper models fetch` cannot run.
+[tool.setuptools.package-data]
+"rfwhisper.models" = ["manifest.json"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"

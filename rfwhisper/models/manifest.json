@@ -1,0 +1,28 @@
+{
+  "$comment": [
+    "Model artifacts, pinned by SHA-256. `rfwhisper models fetch` reads this file.",
+    "A null sha256 means the artifact is NOT yet pinned: fetch will download it, print",
+    "the hash it got, and warn. Paste that hash in here to pin it. Until hosting is",
+    "settled (see issue #12 non-goals) the URLs below are third-party community exports.",
+    "size_bytes is advisory only - it is reported in --dry-run, never enforced."
+  ],
+  "version": 1,
+  "artifacts": [
+    {
+      "name": "deepfilternet3",
+      "relpath": "models/deepfilternet3/dfn3.onnx",
+      "url": "https://huggingface.co/aufklarer/DeepFilterNet3-ONNX/resolve/main/deepfilter.onnx",
+      "sha256": null,
+      "size_bytes": null,
+      "license_note": "Upstream DeepFilterNet: MIT OR Apache-2.0. Third-party export; test parity before trusting it."
+    },
+    {
+      "name": "deepfilternet3-aux",
+      "relpath": "models/deepfilternet3/deepfilter-auxiliary.bin",
+      "url": "https://huggingface.co/aufklarer/DeepFilterNet3-ONNX/resolve/main/deepfilter-auxiliary.bin",
+      "sha256": null,
+      "size_bytes": null,
+      "license_note": "See the HuggingFace model card; must match the ONNX you run."
+    }
+  ]
+}
