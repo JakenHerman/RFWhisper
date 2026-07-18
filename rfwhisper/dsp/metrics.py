@@ -39,6 +39,27 @@ def _best_lag(x: NDArray[np.float64], ref: NDArray[np.float64], max_lag: int) ->
     return int(np.argmax(np.abs(corr[lo:hi]))) + lo - zero
 
 
+def alignment_lag(
+    x: NDArray[np.floating],
+    ref: NDArray[np.floating],
+    sr: int,
+    max_align_ms: float = MAX_ALIGN_MS,
+) -> int:
+    """Samples by which ``x`` lags ``ref``, searched over ``±max_align_ms``.
+
+    Any gate that compares a denoised stream against its raw input needs this: a model
+    with algorithmic latency shifts every feature in the signal, and comparing at fixed
+    indices would score that delay as damage. Positive means ``x`` arrives later.
+    """
+    if sr <= 0:
+        raise ValueError("sr must be positive")
+    if max_align_ms <= 0.0:
+        raise ValueError("max_align_ms must be positive")
+    a = _as_1d(x, "x")
+    r = _as_1d(ref, "ref")
+    return _best_lag(a, r, int(round(max_align_ms * sr / 1000.0)))
+
+
 def _matched_filter_snr_db(x: NDArray[np.float64], ref: NDArray[np.float64], sr: int) -> float:
     """SNR of ``x`` against clean ``ref``, in dB.
 

@@ -9,6 +9,7 @@ import pytest
 from numpy.typing import NDArray
 
 from rfwhisper.dsp.metrics import (
+    alignment_lag,
     effective_snr_gain,
     keying_onset_rms,
     pesq_score,
@@ -77,6 +78,29 @@ def test_snr_gain_rejects_multichannel() -> None:
     stereo = np.zeros((clean.size, 2), dtype=np.float64)
     with pytest.raises(ValueError, match="1-D mono"):
         effective_snr_gain(clean, stereo, clean, SR)
+
+
+@pytest.mark.parametrize("delay", [0, 1, 137, int(0.02 * SR)])
+def test_alignment_lag_recovers_a_known_delay(delay: int) -> None:
+    """A3 and A1 both depend on this: a delayed copy must report exactly its delay."""
+    ref = _speech_like(2 * SR)
+    delayed = np.concatenate([np.zeros(delay), ref])
+    assert alignment_lag(delayed, ref, SR) == delay
+
+
+def test_alignment_lag_is_sign_correct_for_early_signals() -> None:
+    """Negative lag means the signal arrives before the reference."""
+    ref = _speech_like(2 * SR)
+    early = ref[240:]
+    assert alignment_lag(early, ref, SR) == -240
+
+
+def test_alignment_lag_is_bounded_by_the_search_window() -> None:
+    """A delay past the window cannot be reported as if it were found."""
+    ref = _speech_like(2 * SR)
+    delayed = np.concatenate([np.zeros(int(0.2 * SR)), ref])
+    lag = alignment_lag(delayed, ref, SR, max_align_ms=10.0)
+    assert abs(lag) <= int(round(10.0 * SR / 1000.0))
 
 
 def test_keying_onset_rms_matches_analytical_click_train() -> None:
