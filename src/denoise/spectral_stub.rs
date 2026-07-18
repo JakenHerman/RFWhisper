@@ -3,10 +3,11 @@
 //! Not a replacement for DeepFilterNet3 on air; use for pipeline / latency /
 //! regression wiring.
 //!
-//! Known artifact inherited (bit-for-bit) from the Python original: at the very
-//! first/last window of the signal the OLA normalisation divides masked frames by a
-//! near-zero window-sum, so boundary samples can overshoot. Interior samples are
-//! well-behaved. Tracked for a fix alongside the DFN3 backend work.
+//! The OLA normalisation clamps the window-sum divisor to a fraction of its
+//! interior value (see #110): the Python original divided masked frames by a
+//! near-zero window-sum at the very first/last analysis window, which could
+//! overshoot boundary samples by ~40x. Clamping attenuates those partial-overlap
+//! edges instead of amplifying them; interior samples are unaffected.
 
 use realfft::num_complex::Complex;
 use realfft::RealFftPlanner;
@@ -109,9 +110,15 @@ pub fn wiener_like_denoise(x: &[f32], sr: u32) -> Vec<f32> {
             wsum[idx + j] += w * w;
         }
     }
+    // Clamp the divisor to 10 % of the peak window-sum (#110): at the signal
+    // boundaries only a partial window has accumulated, and masked frames no
+    // longer cancel the tiny weights the way the identity path does — dividing
+    // by them amplified boundary junk up to ~40x. Attenuate instead.
+    let wsum_max = wsum.iter().cloned().fold(0.0f32, f32::max);
+    let floor = 0.1 * wsum_max;
     for (o, w) in out.iter_mut().zip(&wsum) {
         if *w > 1e-12 {
-            *o /= w;
+            *o /= w.max(floor);
         }
     }
     out.truncate(x.len());

@@ -16,8 +16,8 @@ fn rms(x: &[f32]) -> f64 {
 
 /// Stationary noise must be attenuated in the steady-state interior (the stub's
 /// Wiener-ish mask sits well below 1 on noise-only bins). The first/last window is
-/// excluded: the stub inherits the Python original's OLA edge artifact, where masked
-/// frames divided by a near-zero window-sum can overshoot at the signal boundaries.
+/// excluded so the measurement reflects steady state, not the attenuated
+/// partial-overlap boundaries (see `test_stub_boundaries_do_not_overshoot`).
 #[test]
 fn test_stub_attenuates_stationary_noise_interior() {
     let n = 2 * SR as usize;
@@ -38,6 +38,40 @@ fn test_stub_attenuates_stationary_noise_interior() {
     assert!(
         att_db < -0.5,
         "stub should attenuate stationary noise (Python reference: -0.75 dB), got {att_db:.2} dB"
+    );
+}
+
+/// Boundary regression for #110: the first/last window must not overshoot.
+/// Before the OLA divisor clamp, masked frames divided by a near-zero window-sum
+/// blew the boundary up to ~40x interior RMS.
+#[test]
+fn test_stub_boundaries_do_not_overshoot() {
+    let n = 2 * SR as usize;
+    let mut rng = TestRng::new(7);
+    let noisy: Vec<f32> = (0..n)
+        .map(|i| {
+            let t = i as f64 / SR as f64;
+            let sig = 0.5
+                * (2.0 * std::f64::consts::PI * 800.0 * t).sin()
+                * (0.6 + 0.4 * (2.0 * std::f64::consts::PI * 3.0 * t).sin());
+            (sig + 0.25 * rng.standard_normal()) as f32
+        })
+        .collect();
+
+    let mut eng = SpectralStubEngine;
+    let out = eng.process(&noisy, SR);
+
+    let edge = 512; // one stub FFT window at 48 kHz
+    let interior_rms = rms(&out[edge..n - edge]);
+    let head_rms = rms(&out[..edge]);
+    let tail_rms = rms(&out[n - edge..]);
+    assert!(
+        head_rms <= 2.0 * interior_rms,
+        "head rms {head_rms:.4} vs interior {interior_rms:.4}"
+    );
+    assert!(
+        tail_rms <= 2.0 * interior_rms,
+        "tail rms {tail_rms:.4} vs interior {interior_rms:.4}"
     );
 }
 
