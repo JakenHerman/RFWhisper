@@ -69,15 +69,15 @@ RPi Zero 2 W ships with RNNoise (not DFN3) and has a separate, looser budget.
 
 ## Deliverables
 
-- `rfwhisper` Python package with `pyproject.toml` (installable via `pip install -e .`)
+- `rfwhisper` Rust crate with `Cargo.toml` (single static binary via `cargo build --release`)
 - `rfwhisper denoise` — offline WAV in → WAV out + JSON report
 - `rfwhisper denoise-live` — real-time audio device → audio device
 - `rfwhisper audio list` — enumerate input/output devices
-- `rfwhisper gui` — minimal cross-platform GUI (PySide6 or Tk)
+- `rfwhisper gui` — minimal cross-platform GUI (native Rust; egui candidate)
 - `rfwhisper models fetch` — downloads pre-converted DFN3 + RNNoise ONNX
 - `models/deepfilternet3/model.onnx` (or hosted with SHA-256 pinned in repo)
 - `models/rnnoise/model.onnx` (or hosted with SHA-256 pinned)
-- `tests/audio/` with acceptance harness (see below)
+- `tests/` acceptance harness (`gate_*` tests; see below)
 - `docs/quickstart.md`, `docs/virtual-cable-setup.md` (Win/Mac/Linux)
 - At least 5 seed samples in `samples/` covering SSB, CW, FT8, VHF FM, powerline buzz
 
@@ -89,7 +89,7 @@ RPi Zero 2 W ships with RNNoise (not DFN3) and has a separate, looser budget.
 | A1  | Effective SNR gain on ham speech mix | Matched-filter correlation vs clean reference on `tests/audio/ssb_mix_*.wav` | **≥ +3 dB** avg, ≥ +6 dB on powerline-dominant clips       |
 | A2  | No FT8 decode regressions            | WSJT-X decoder run on raw vs denoised 15-min segment                         | Denoised decodes **≥** raw decodes, **zero** false decodes |
 | A3  | No CW transient damage               | RMS energy in keying-onset window (first 5 ms of dit)                        | Within **±1 dB** of raw                                    |
-| A4  | End-to-end latency (p99)             | `tests/audio/latency_probe.py` with impulse train                            | **< 100 ms** on i5-8xxx / M1 / RPi 5                       |
+| A4  | End-to-end latency (p99)             | `gate_latency_probe` with impulse train                                      | **< 100 ms** on i5-8xxx / M1 / RPi 5                       |
 | A5  | Real-time factor (RTF)               | DFN3 CPU-only on target hardware                                             | **RTF < 0.5** (headroom for other tasks)                   |
 | A6  | No-op sanity (clean in → clean out)  | PESQ / STOI on clean speech                                                  | PESQ drop ≤ 0.3, STOI drop ≤ 0.02                          |
 | A7  | Cross-platform install               | CI matrix build + smoke test                                                 | Green on ubuntu-22.04, macos-13, windows-2022              |
@@ -240,7 +240,7 @@ All CI-enforceable criteria run in `[.github/workflows/basic-ci.yml](./.github/w
 
 **In:**
 
-- Qt/PySide6 main window with:
+- Native Rust (egui) main window with:
   - Dual waterfall (raw vs denoised) with synchronized scroll
   - A/B audio toggle (big, obvious)
   - Live telemetry: effective SNR gain, SINAD, RTF, CPU %, end-to-end latency
@@ -251,8 +251,8 @@ All CI-enforceable criteria run in `[.github/workflows/basic-ci.yml](./.github/w
 
 ## Deliverables
 
-- `rfwhisper-gui` binary (PySide6)
-- Waterfall renderer (OpenGL or pyqtgraph)
+- `rfwhisper gui` (native Rust; egui)
+- Waterfall renderer (wgpu or egui painter)
 - Metrics panel
 - Screenshots in docs
 

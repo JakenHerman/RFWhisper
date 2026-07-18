@@ -35,7 +35,7 @@ RPi Zero 2 W ships with RNNoise (not DFN3) and has a separate, looser budget.
 ## Measurement methodology
 
 ```bash
-python -m rfwhisper.bench latency \
+rfwhisper bench latency \
   --backend portaudio \
   --in default --out default \
   --blocksize 480 \
@@ -56,7 +56,7 @@ What it does:
 ## Hard rules
 
 - **No allocations in the audio callback.** Verified in CI with an ASan build that flags `malloc` from RT threads.
-- **GIL released in the inference path.** Python code that doesn't respect this fails profiler checks.
+- **No locks or blocking in the inference handoff.** Bounded try_send channels between callback and worker; drop on overflow.
 - **Thread affinity is intentional**, never left to the scheduler when it matters.
 - **Frame sizes** are 10–30 ms — shorter for CW (transient fidelity), longer for FT8 (decoder tolerates, NN gets more context).
 
@@ -72,7 +72,7 @@ If RT priority is unavailable (rootless container, no `realtime` group), RFWhisp
 
 ## When you miss the budget
 
-1. Run `python -m rfwhisper.bench latency --trace` to get per-stage histograms.
+1. Run `rfwhisper bench latency --trace` to get per-stage histograms.
 2. Check CPU governor (Linux) and power mode (macOS / Windows).
 3. Check virtual cable internal rate (48 kHz) matches RFWhisper's.
 4. Reduce blocksize carefully: smaller blocks lower latency but raise xrun risk.

@@ -16,25 +16,24 @@ Tested on Ubuntu 22.04 / 24.04, Debian 12, Fedora 39, and Arch (rolling).
 ```bash
 sudo apt update
 sudo apt install -y \
-  python3 python3-venv python3-pip \
   git git-lfs \
-  libportaudio2 libsndfile1 libasound2-dev \
-  ffmpeg build-essential cmake pkg-config
+  libasound2-dev \
+  ffmpeg build-essential pkg-config
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # Rust toolchain
 ```
 
 ### Fedora
 
 ```bash
-sudo dnf install -y python3 python3-virtualenv git git-lfs \
-  portaudio-devel libsndfile alsa-lib-devel ffmpeg \
-  gcc gcc-c++ cmake pkgconfig
+sudo dnf install -y git git-lfs alsa-lib-devel ffmpeg gcc pkgconfig
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
 ### Arch
 
 ```bash
-sudo pacman -S --needed python python-virtualenv git git-lfs \
-  portaudio libsndfile alsa-lib ffmpeg base-devel cmake
+sudo pacman -S --needed rustup git git-lfs alsa-lib ffmpeg base-devel
+rustup default stable
 ```
 
 ## 2. (Optional) GNU Radio for v0.2+ flowgraphs
@@ -65,10 +64,9 @@ WSJT-X / fldigi will see the loopback as a regular input device.
 ```bash
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
-python3 -m venv .venv && source .venv/bin/activate
-pip install -U pip wheel
-pip install -e ".[audio]"
-python -m rfwhisper.models.fetch
+cargo build --release
+sudo install -m755 target/release/rfwhisper /usr/local/bin/
+rfwhisper models fetch
 rfwhisper doctor
 ```
 
@@ -106,6 +104,6 @@ See [Hardware → SDRs](../hardware/sdrs) for other devices.
 
 ## Troubleshooting
 
-- **`PortAudioError: no default output device`** — install `pipewire-pulse` or `pulseaudio-utils`, then reboot.
+- **`no default device` from `rfwhisper audio list`** — install `pipewire-pulse` or `pulseaudio-utils`, then reboot.
 - **Underruns / xruns** — confirm you're in the `realtime` group (`id | grep realtime`) and that `cpufreq` governor isn't `powersave` during use.
-- **`onnxruntime` missing CUDA provider** — install `onnxruntime-gpu` instead: `pip install onnxruntime-gpu`.
+- **Build fails on `alsa-sys`** — install the ALSA headers: `sudo apt install libasound2-dev` (or your distro's equivalent).

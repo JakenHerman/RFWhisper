@@ -48,25 +48,25 @@ sequenceDiagram
 
 Single-producer single-consumer lock-free ring between capture and processing, and between processing and output. Tuned to ~4 frames of headroom; larger buffers trade latency for safety against device jitter.
 
-### 3. Pre-DSP (`rfwhisper/dsp/`)
+### 3. Pre-DSP (`src/dsp/`)
 
 In order:
 
 1. **De-emphasis** (if input is NBFM) — 50 µs / 75 µs curves.
-2. **Polyphase resample** to model native rate (48 kHz for DFN3 / RNNoise-ham). Uses `liquid_msresamp`. Never `scipy.signal.resample` in the hot path.
-3. **Windowing** (Hann by default; sqrt-Hann when the output chain also windows). VOLK-accelerated.
-4. **STFT** via liquid-dsp FFT plans, plans reused across frames.
+2. **Polyphase resample** to model native rate (48 kHz for DFN3 / RNNoise-ham). Kaiser-windowed polyphase in `src/dsp/resample.rs`. Never FFT-whole-signal resampling in the hot path.
+3. **Windowing** (Hann by default; sqrt-Hann when the output chain also windows).
+4. **STFT** via realfft plans, reused across frames.
 5. **Feature prep** — model-specific. DFN3 ingests spectrogram mag+phase; RNNoise uses its custom 42-dim bark features (handled inside the ONNX graph).
 6. **(v0.3) Adaptive narrowband notch** — classical LMS / gated IIR that removes stable carriers *before* the NN. Off by default for CW/FT8 profiles.
 
-All preallocated. Zero Python in the per-frame critical path (we use C extensions / numpy views with pre-cast buffers).
+All preallocated. Zero allocation in the per-frame critical path.
 
-### 4. ONNX inference (`rfwhisper/models/`)
+### 4. ONNX inference (`src/models/`)
 
 - Execution provider chosen by rank: `CoreML → DirectML → CUDA → XNNPACK → CPU`. Override with `RFWHISPER_PROVIDER=...`.
 - I/O tensors allocated once; bound via ONNX Runtime's IO binding API.
 - `intra_op_num_threads` tuned per-target (see [Performance / Embedded](../../AGENTS.md) if you're reading in the repo).
-- GIL released around `OrtRun`.
+- Inference runs on a dedicated worker thread, never in the audio callback.
 
 ### 5. Post-DSP
 

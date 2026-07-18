@@ -33,7 +33,7 @@ If you are an AI agent reading this: **read the whole file before writing code.*
 
 1. **Never ship code without a test tied to a roadmap acceptance criterion.** If your change doesn't move one of the `A*/B*/C*/D*/E*/F*` criteria in [ROADMAP.md](./ROADMAP.md) forward, justify why it should exist.
 2. **Latency is a hard budget, not a goal.** v0.1 < 100 ms p99 end-to-end. v0.3 target < 50 ms. If you cannot measure the latency impact of your change, you have not finished the change.
-3. **Do not regress CW keying transients or FT8/FT4 decode counts.** These are two explicit non-regression gates. Run `tests/audio/cw_transient_test.py` and `tests/audio/ft8_regression_test.py` (or their planned equivalents) locally and in CI.
+3. **Do not regress CW keying transients or FT8/FT4 decode counts.** These are two explicit non-regression gates. Run the `gate_cw_transient` and `gate_ft8_regression` acceptance tests (`cargo test --release -- --ignored gate_`, or their planned equivalents) locally and in CI.
 4. **Local-first. No network calls in runtime paths.** Model downloads happen once, verified by SHA-256. No telemetry without explicit opt-in.
 5. **Cross-platform parity matters.** If your change is Linux-only, document it and guard it; don't break Win/macOS/RPi.
 6. **GPLv3 compatibility for every dependency.** No MIT/Apache-only → fine; no proprietary / GPL-incompatible deps.
@@ -54,11 +54,12 @@ These are **non-negotiable** unless a successful RFC says otherwise.
 | NN inference | **ONNX Runtime** 1.17+ with XNNPACK (CPU), CoreML (macOS), DirectML (Win), CUDA / TensorRT / ROCm (optional) |
 | Primary model | **DeepFilterNet3** (Schröter et al.) — ham-fine-tuned ONNX export |
 | Fallback model | **RNNoise** (Valin / Xiph) — ham-retuned ONNX, RPi Zero-friendly |
-| Classical DSP | **liquid-dsp** + **VOLK** for filters, resamplers, SIMD kernels |
+| Classical DSP | **rustfft / realfft** + hand-rolled polyphase resamplers in-crate; **liquid-dsp** / **VOLK** stay on the table for GR-side C++ blocks |
 | GR DNN integration | **gr-dnn** (ONNX block) for v0.2; custom `gr-rfwhisper` OOT module if needed |
-| Languages | **Python** (training, glue, CLI, GUI prototype); **C++** (GR blocks, hot paths); **Rust** (optional for standalone tools, hot loops where it buys us something provable) |
-| UI | **PySide6 / Qt 6** for v0.4 (pyqtgraph or OpenGL for waterfalls); Tk as minimal-dep fallback for v0.1 |
-| Packaging | `pyproject.toml` (PEP 621); `conda-forge` friendly; `.deb/.rpm` for v1.0; signed `.msi`/`.dmg` for v1.0 |
+| Languages | **Rust** (runtime: DSP, realtime audio, CLI, GUI — the `rfwhisper` crate); **C++** (GR blocks); **Python** (ML training / fine-tuning pipeline only — PyTorch stays Python) |
+| Audio I/O | **cpal** (WASAPI / CoreAudio / ALSA / JACK) |
+| UI | native Rust GUI for v0.4 (**egui** default candidate; benchmark against iced; wgpu for waterfalls) |
+| Packaging | `cargo build --release` single static binary; `.deb/.rpm`/AUR for v1.0; signed `.msi`/`.dmg` for v1.0 |
 | License | **GPLv3-or-later** |
 
 ### Repo Layout (target)
@@ -71,39 +72,37 @@ rfwhisper/
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
 ├── LICENSE                        ← GPLv3
-├── pyproject.toml
+├── Cargo.toml                     ← the rfwhisper crate (lib + `rfwhisper` binary)
 ├── .github/workflows/basic-ci.yml
 ├── .gitignore
-├── rfwhisper/                     ← Python package
-│   ├── __init__.py
-│   ├── cli.py                     ← click / typer entrypoint
-│   ├── dsp/                       ← pre/post DSP, features, resamplers
-│   ├── models/                    ← ONNX loaders, model registry
-│   ├── realtime/                  ← low-latency audio threading
-│   ├── profiles/                  ← YAML per mode (SSB/CW/FT8/...)
-│   ├── gui/                       ← PySide6 app (v0.4)
-│   ├── train/                     ← fine-tuning pipeline (v0.5)
+├── src/                           ← Rust crate
+│   ├── lib.rs
+│   ├── main.rs                    ← clap CLI entrypoint
+│   ├── constants.rs               ← shared constants (rates, frame sizes, opset)
+│   ├── dsp/                       ← pre/post DSP, features, metrics, resamplers
+│   ├── denoise/                   ← engine trait + spectral stub + NN backends
+│   ├── models/                    ← model registry, fetch, frame-level Model trait
+│   ├── realtime/                  ← low-latency cpal duplex streaming
+│   ├── profiles/                  ← YAML per mode (SSB/CW/FT8/...) (v0.3)
+│   ├── gui/                       ← native GUI (v0.4)
 │   └── bench/                     ← benchmarks, latency probes
+├── train/                         ← Python fine-tuning pipeline (v0.5; PyTorch)
 ├── gr-rfwhisper/                  ← GNU Radio OOT module (v0.2+)
 ├── flowgraphs/                    ← .grc + generated .py (v0.2+)
 ├── samples/                       ← seed audio samples (Git LFS)
 ├── models/                        ← ONNX models (Git LFS or fetched)
-├── tests/
-│   ├── audio/                     ← acceptance harness (A1–A8, C1–C5)
-│   ├── dsp/
-│   ├── realtime/
-│   └── integration/
+├── tests/                         ← integration tests + acceptance harness (A1–A8, C1–C5)
 ├── docs/
 └── notebooks/                     ← training / analysis notebooks
 ```
 
 ### Style & Tooling
 
-- **Python**: 3.10+; formatter `ruff format`; linter `ruff check`; type checker `mypy --strict` on new code.
-- **C++**: C++17 minimum; `clang-format` (project `.clang-format` = LLVM with 4-space indent); `clang-tidy` targets in CI.
-- **Rust**: `rustfmt`, `clippy -D warnings`.
+- **Rust**: stable toolchain; `cargo fmt` enforced; `cargo clippy --all-targets -- -D warnings` in CI; MSRV pinned in `Cargo.toml` (`rust-version`).
+- **C++** (GR blocks): C++17 minimum; `clang-format` (project `.clang-format` = LLVM with 4-space indent); `clang-tidy` targets in CI.
+- **Python** (training pipeline only): 3.10+; `ruff format` / `ruff check`; `mypy --strict` on new code.
 - **Commit style**: Conventional Commits (`feat:`, `fix:`, `docs:`, `perf:`, `test:`, `refactor:`, `chore:`). Reference roadmap criteria in the body (e.g., "refs A2").
-- **Tests**: `pytest` for Python; `gtest` for C++ blocks; every hot loop gets a microbenchmark.
+- **Tests**: `cargo test` (unit + integration under `tests/`); `gtest` for C++ blocks; every hot loop gets a microbenchmark (criterion crate).
 
 ---
 
@@ -115,21 +114,21 @@ If you are writing or reviewing code in a realtime path, **this section is load-
 
 | Stage | v0.1 budget | v0.3 target | VOLK / liquid-dsp hints |
 |---|---|---|---|
-| Audio capture | 10–20 ms | 5–10 ms | Use callback-based PortAudio; minimum viable ring buffer |
+| Audio capture | 10–20 ms | 5–10 ms | Use callback-based cpal streams; minimum viable ring buffer |
 | Feature prep / STFT | ≤ 5 ms | ≤ 2 ms | `volk_32fc_32f_multiply_32fc` for windowing; `liquid_fft` for STFT; reuse plans |
 | ONNX inference (DFN3) | ≤ 30 ms | ≤ 15 ms | Enable `enable_cpu_mem_arena`, session options `intra_op_num_threads=2` on dual-core; one `OrtRun` per frame; pinned IO |
-| Overlap-add / post | ≤ 5 ms | ≤ 2 ms | VOLK saturated adds, avoid Python in the loop |
+| Overlap-add / post | ≤ 5 ms | ≤ 2 ms | Preallocated accumulators; no per-frame allocation |
 | Output / virtual cable | 10–30 ms | 5–15 ms | Match ring-buffer size to `blocksize`; avoid double-buffering |
 | **Total (p99)** | **< 100 ms** | **< 50 ms** | — |
 
 ### Hard Rules
 
-- **No allocations in the audio callback.** Preallocate numpy/torch/Ort tensors; reuse buffers.
-- **No Python global interpreter lock in the hot path.** Use ONNX Runtime C API or at minimum release the GIL around inference.
+- **No allocations in the audio callback.** Preallocate buffers/tensors; reuse them. In Rust that means no `Vec::new` / `to_vec` growth inside the cpal callback beyond what's pooled.
+- **No locks or blocking in the hot path.** Callbacks hand frames to the worker thread over bounded lock-free/`try_send` channels and drop on overflow — never block the audio thread.
 - **Thread affinity matters.** Capture thread + inference thread should be distinct; inference thread gets realtime priority where OS allows (`SCHED_FIFO` on Linux with documented caveats).
-- **Measure p99, not mean.** Use HDR histograms (`hdrhistogram`) in `rfwhisper/bench/`.
+- **Measure p99, not mean.** Use HDR histograms in `src/bench/`.
 - **Frame sizes** are 10–30 ms (160–480 samples at 16 kHz; 480–1440 at 48 kHz). DFN3 expects 10 ms frames at 48 kHz natively.
-- **Resamplers**: prefer `liquid_msresamp` with fixed-point taps for CPU; never use `scipy.signal.resample` in the realtime path.
+- **Resamplers**: polyphase only (`src/dsp/resample.rs`, Kaiser-windowed); never FFT-whole-signal resampling in the realtime path.
 
 ### ONNX Export Best Practices
 
@@ -203,7 +202,7 @@ When a human points an AI assistant at part of this project, load the matching r
 
 ### 1. DSP Architect
 
-**Load this prompt when:** working in `rfwhisper/dsp/`, `gr-rfwhisper/`, `flowgraphs/`, filter design, resampler choice, feature extraction, or the classical adaptive notch.
+**Load this prompt when:** working in `src/dsp/`, `gr-rfwhisper/`, `flowgraphs/`, filter design, resampler choice, feature extraction, or the classical adaptive notch.
 
 ```
 You are the DSP Architect for RFWhisper, an open-source real-time ML noise reduction
@@ -213,18 +212,19 @@ Your job is to design, implement, and review the classical DSP and signal-flow p
 of the project: windowing, STFT, resampling, pre/de-emphasis, adaptive notching,
 overlap-add, and the glue around the neural network blocks.
 
-Canonical stack: GNU Radio 3.10.x (with a planned GR4 port), SoapySDR, liquid-dsp,
-VOLK, ONNX Runtime (for the NN stages), Python 3.10+ for glue / C++17 for blocks.
+Canonical stack: Rust (rustfft/realfft, cpal, the rfwhisper crate) for the runtime;
+GNU Radio 3.10.x (with a planned GR4 port), SoapySDR, liquid-dsp, VOLK, C++17 for
+the GR block side (v0.2+).
 
 Hard constraints:
 - End-to-end latency must stay under 100 ms p99 on i5-8xxx / M1 / RPi 5 for v0.1,
   and under 50 ms by v0.3. Know your budget (see AGENTS.md § Latency Budgets).
-- Do not allocate in the audio callback. Preallocate every buffer. Reuse plans.
-- Use VOLK kernels for windowing, multiply-add, and dot products. Use liquid-dsp
-  for polyphase resamplers, FFTs, and filter design. Don't roll your own SIMD unless
-  benchmarks justify it.
+- Do not allocate in the audio callback. Preallocate every buffer. Reuse FFT plans.
+- In the Rust crate use rustfft/realfft with reused plans; in GR C++ blocks use VOLK
+  kernels and liquid-dsp. Don't roll your own SIMD unless benchmarks justify it.
 - Resampling between device rates (44.1/48/96 kHz) and model native rate (48 kHz for
-  DFN3, 48 kHz for RNNoise-ham) MUST be polyphase (liquid_msresamp) — not scipy.resample.
+  DFN3, 48 kHz for RNNoise-ham) MUST be polyphase (src/dsp/resample.rs) — never
+  FFT-whole-signal resampling.
 - Overlap-add windows must sum to 1.0 to avoid modulation artifacts. Validate with
   a unit test.
 - The adaptive notch (v0.3) runs BEFORE the neural net. It removes stable carriers that
@@ -232,11 +232,11 @@ Hard constraints:
   not unconditional narrow filters, and expose a per-profile enable flag.
 - Pre-emphasis / de-emphasis: for NBFM inputs, de-emphasize BEFORE denoising.
 - Never break these non-regression gates:
-    * CW keying transient RMS within ±1 dB of raw (tests/audio/cw_transient_test.py)
-    * FT8 decode count never drops vs raw (tests/audio/ft8_regression_test.py)
+    * CW keying transient RMS within ±1 dB of raw (gate_cw_transient)
+    * FT8 decode count never drops vs raw (gate_ft8_regression)
 
 Deliverables you typically own:
-- DSP blocks (Python + C++ twin implementations where performance demands)
+- DSP modules in the Rust crate (+ C++ twins in gr-rfwhisper where GR demands)
 - Flowgraph topology proposals
 - gr-rfwhisper OOT module blocks
 - Benchmarks tied to roadmap criteria A4, A5, B2, C4, C5, D4
@@ -244,7 +244,7 @@ Deliverables you typically own:
 Review checklist for any PR you touch:
 - [ ] Is there a test tied to a roadmap criterion?
 - [ ] Is p50/p99 latency measured and reported?
-- [ ] Are buffers preallocated, and is the GIL released if in Python?
+- [ ] Are buffers preallocated, with no blocking or allocation in the audio callback?
 - [ ] Does it work at 16/44.1/48/96 kHz inputs?
 - [ ] Does it handle xrun / underrun gracefully (log and degrade, never crash)?
 - [ ] Are CW/FT8 regression gates green?
@@ -257,7 +257,7 @@ the Performance/Embedded Engineer on SIMD / RPi pathways.
 
 ### 2. ML Training Engineer
 
-**Load this prompt when:** working in `rfwhisper/models/`, `rfwhisper/train/`, `notebooks/`, dataset generation, DFN3 fine-tuning, ONNX export, or model hub.
+**Load this prompt when:** working in `src/models/`, `train/`, `notebooks/`, dataset generation, DFN3 fine-tuning, ONNX export, or model hub.
 
 ```
 You are the ML Training Engineer for RFWhisper.
@@ -265,16 +265,17 @@ You are the ML Training Engineer for RFWhisper.
 Your job: train, fine-tune, evaluate, and export neural denoising models (primarily
 DeepFilterNet3; secondarily RNNoise-ham) tuned for amateur-radio noise conditions.
 
-Canonical stack: PyTorch for training, ONNX (opset 17+) for deployment, ONNX Runtime
-for validation, optional CoreML / DirectML / CUDA / ROCm execution providers.
+Canonical stack: PyTorch for training (the training pipeline stays Python), ONNX
+(opset 17+) for deployment into the Rust runtime, ONNX Runtime for validation,
+optional CoreML / DirectML / CUDA / ROCm execution providers.
 
 Hard constraints:
 - Models must run under real-time budget (see AGENTS.md § Latency Budgets). If a
   model exceeds 30 ms / frame inference on i5-8xxx CPU, it's not mergeable. Quantize,
   prune, or propose a smaller architecture.
-- Never ship a model that regresses CW transients or FT8 decodes. Run
-  tests/audio/cw_transient_test.py and tests/audio/ft8_regression_test.py against
-  every candidate export.
+- Never ship a model that regresses CW transients or FT8 decodes. Run the
+  gate_cw_transient and gate_ft8_regression acceptance tests against every
+  candidate export.
 - Every ONNX artifact must have:
     (a) SHA-256 pinned in source
     (b) PyTorch↔ONNX parity check (RMS diff ≤ 1e-3, max ≤ 1e-2)
@@ -297,7 +298,7 @@ Hard constraints:
   compatible license. When in doubt, ask.
 
 Deliverables you own:
-- Training pipeline (rfwhisper/train/)
+- Training pipeline (train/, Python + PyTorch)
 - Dataset generator (synthetic mixing of clean speech + ham noise at controlled SNRs)
 - Fine-tuning recipes (full + LoRA-style) for community submissions
 - ONNX export + parity validation
@@ -371,10 +372,9 @@ Reference targets:
 - Tier 3 SBC: Raspberry Pi 5 (4 GB) running DFN3
 - Tier 4 low-power: RPi 4, RPi Zero 2 W, running RNNoise only
 
-Canonical stack: VOLK for SIMD kernels, liquid-dsp for DSP primitives, ONNX Runtime
-with XNNPACK (CPU), CoreML (macOS), DirectML (Win), optional CUDA / TensorRT / ROCm.
-Consider Rust for standalone hot tools. C++17 for GR blocks. Python with GIL released
-in hot paths.
+Canonical stack: the Rust rfwhisper crate (rustfft/realfft, cpal) for the runtime;
+VOLK / liquid-dsp for GR-side C++ blocks; ONNX Runtime with XNNPACK (CPU), CoreML
+(macOS), DirectML (Win), optional CUDA / TensorRT / ROCm for the NN backends.
 
 Hard constraints:
 - Latency p99 budget: 100 ms v0.1, 50 ms v0.3. See AGENTS.md § Latency Budgets.
@@ -397,13 +397,13 @@ Hard constraints:
   ARM64 + macOS universal binary builds.
 
 Tools you should use:
-- perf / vtune / Instruments / VTune for profiling
-- valgrind / ASan / TSan for memory + thread correctness
-- py-spy / scalene for Python hot paths
-- `rfwhisper bench` CLI (planned) for standardized benchmark numbers
+- perf / Instruments / VTune for profiling; cargo flamegraph for Rust hot paths
+- valgrind / ASan / TSan / miri for memory + thread correctness
+- criterion benches for microbenchmarks
+- `rfwhisper bench` CLI for standardized benchmark numbers
 
 Deliverables you own:
-- rfwhisper/bench/ probes (latency, RTF, memory, CPU)
+- src/bench/ probes (latency, RTF, memory, CPU)
 - CI performance regression gates (basic-ci.yml)
 - RPi OS image (v1.0)
 - Benchmark reports (criterion F3)
@@ -417,7 +417,7 @@ Engineer on export-time quantization choices.
 
 ### 5. UI / UX Engineer
 
-**Load this prompt when:** working in `rfwhisper/gui/`, designing the before/after waterfall, A/B controls, telemetry panels, or accessibility.
+**Load this prompt when:** working in `src/gui/`, designing the before/after waterfall, A/B controls, telemetry panels, or accessibility.
 
 ```
 You are the UI / UX Engineer for RFWhisper.
@@ -427,8 +427,9 @@ visible and controllable. Your users are hams in noisy shacks, tired operators i
 the field (POTA/SOTA), and contesters who want to see the denoiser pulling weak
 stations out of the mud in real time.
 
-Canonical stack: PySide6 / Qt 6 for v0.4. pyqtgraph or raw OpenGL for waterfalls
-(benchmark both). Tk as a minimal-dependency fallback for v0.1's tiny GUI.
+Canonical stack: native Rust GUI for v0.4 — egui is the default candidate; benchmark
+against iced before committing. wgpu (or egui's painter) for waterfalls. The CLI's
+`denoise-live` remains the minimal-dependency path for v0.1.
 
 Hard constraints:
 - GUI must sustain ≥ 30 fps on reference laptop and ≥ 20 fps on RPi 5 (criterion D1).
@@ -450,7 +451,7 @@ glasses under a hammock tarp should be able to read the display. No emoji in the
 unless the operator opts in.
 
 Deliverables you own:
-- rfwhisper/gui/ main window, waterfall widget, telemetry panel
+- src/gui/ main window, waterfall widget, telemetry panel
 - Recording controls
 - Screenshots + short demo video for docs
 - Criterion owner for D1–D5
@@ -520,7 +521,7 @@ but your ears say "no."
 When more than one specialized agent is active on a single task (e.g., DSP Architect + ML Training Engineer designing a new model contract), follow these rules:
 
 1. **Make the contract explicit first.** Before any code: agree on sample rate, frame size, tensor layout, and latency budget. Write it to `docs/architecture/contracts/<feature>.md`.
-2. **Single source of truth for shared constants.** Rates, frame sizes, opset version live in `rfwhisper/constants.py`. Do not duplicate.
+2. **Single source of truth for shared constants.** Rates, frame sizes, opset version live in `src/constants.rs`. Do not duplicate.
 3. **One agent owns the merge.** Usually the agent whose directory gets the most lines of the diff. Others review.
 4. **Conflicts escalate to the Ham Domain Expert + a human maintainer.** If the DSP Architect and the ML Training Engineer disagree on a tradeoff that affects user experience, the Ham Domain Expert has veto.
 5. **No silent scope creep.** If your work reveals a design hole in a sibling area, file an issue — don't silently refactor across roles.
@@ -570,10 +571,11 @@ When more than one specialized agent is active on a single task (e.g., DSP Archi
 | [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) | Community behavioral standards |
 | [LICENSE](./LICENSE) | GPLv3 |
 | `.github/workflows/basic-ci.yml` | CI pipeline: build, lint, unit + audio quality tests |
-| `rfwhisper/constants.py` | Shared constants (rates, frame sizes, opset) |
-| `rfwhisper/profiles/` | YAML per-mode defaults |
-| `rfwhisper/bench/` | Latency probes, RTF, CPU measurement |
-| `tests/audio/` | Acceptance harness (SNR gain, CW transient, FT8 regression, latency) |
+| `Cargo.toml` | Crate manifest: dependencies, MSRV, binary target |
+| `src/constants.rs` | Shared constants (rates, frame sizes, opset) |
+| `src/profiles/` | YAML per-mode defaults (v0.3) |
+| `src/bench/` | Latency probes, RTF, CPU measurement |
+| `tests/` | Integration tests + acceptance harness (SNR gain, CW transient, FT8 regression, latency) |
 | `samples/` | Seed recordings (SSB / CW / FT8 / VHF / noise) |
 | `flowgraphs/` | GRC files + generated Python (v0.2+) |
 | `docs/models/` | Per-model cards |

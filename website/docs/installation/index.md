@@ -19,7 +19,7 @@ RFWhisper runs on **Linux, macOS, Windows, and Raspberry Pi 5**. Pick your platf
 
 ## Shared prerequisites
 
-- **Python 3.10 / 3.11 / 3.12** (3.12 recommended)
+- **Rust** (stable toolchain via [rustup](https://rustup.rs/))
 - **Git** with `git-lfs` for samples/models
 - A working audio stack on your OS
 - (For v0.2+) GNU Radio 3.10.x with `gr-soapy` + `gr-dnn`
@@ -29,11 +29,12 @@ RFWhisper runs on **Linux, macOS, Windows, and Raspberry Pi 5**. Pick your platf
 ```bash
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[audio]"
-python -m rfwhisper.models.fetch
-rfwhisper --version
+cargo build --release
+./target/release/rfwhisper models fetch
+./target/release/rfwhisper --version
 ```
+
+The build produces a single self-contained binary at `target/release/rfwhisper` — copy it anywhere on your `PATH` (no interpreter or virtualenv needed).
 
 Then jump to [Quick Start](../quickstart/) to denoise your first file.
 
@@ -43,6 +44,6 @@ Then jump to [Quick Start](../quickstart/) to denoise your first file.
 rfwhisper doctor
 ```
 
-Runs a diagnostic checklist: Python version, ONNX Runtime providers, audio backend, model SHA-256s, and platform-specific quirks. Paste the output into any bug report.
+Runs a diagnostic checklist: build info, ONNX Runtime providers, audio backend, model SHA-256s, and platform-specific quirks. Paste the output into any bug report.
 
 :::

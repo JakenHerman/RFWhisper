@@ -34,10 +34,10 @@ Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/) and pick **Rasp
 ```bash
 sudo apt update && sudo apt full-upgrade -y
 sudo apt install -y \
-  python3 python3-venv python3-pip \
   git git-lfs \
-  libportaudio2 libsndfile1 libasound2-dev \
-  ffmpeg build-essential cmake pkg-config
+  libasound2-dev \
+  ffmpeg build-essential pkg-config
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # Rust toolchain
 ```
 
 ## 3. (Optional) GNU Radio
@@ -53,12 +53,11 @@ gr-dnn is not yet packaged for Raspberry Pi OS; we ship an aarch64 wheel in v0.2
 ```bash
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
-python3 -m venv .venv && source .venv/bin/activate
-pip install -U pip wheel
+cargo build --release        # native aarch64 build; grab a coffee on first compile
+sudo install -m755 target/release/rfwhisper /usr/local/bin/
 
 # On Pi 5 prefer DFN3; on Pi 4 / Zero 2 W stick to RNNoise:
-pip install -e ".[audio]"
-python -m rfwhisper.models.fetch --variant auto    # picks RNNoise on <Pi 5
+rfwhisper models fetch
 rfwhisper doctor
 ```
 
