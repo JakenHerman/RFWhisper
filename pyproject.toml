@@ -112,6 +112,7 @@ markers = [
   "needs_model: needs fetched ONNX or df stack",
   "needs_df: needs deepfilternet + torch",
   "needs_wsjtx: needs WSJT-X jt9 binary",
+  "realhw: needs a real audio device (skipped in CI, which has no sound card)",
   "needs_gnuradio: needs GNU Radio Python bindings",
   "a1: maps to ROADMAP A1",
   "a2: maps to ROADMAP A2",
