@@ -116,7 +116,10 @@ fn report_without_reference_omits_snr_but_keeps_spectrograms() {
         !html.contains("id=cv-clean"),
         "no clean panel without a reference"
     );
-    assert!(!html.contains("SNR before"), "no SNR tiles without a reference");
+    assert!(
+        !html.contains("SNR before"),
+        "no SNR tiles without a reference"
+    );
     assert!(html.contains("No <code>--reference</code>"));
 }
 
@@ -130,7 +133,10 @@ fn report_is_fully_self_contained() {
         !html.contains("http://") && !html.contains("https://"),
         "report references an external URL and is not self-contained"
     );
-    assert!(!html.contains("src=\""), "report pulls an external resource");
+    assert!(
+        !html.contains("src=\""),
+        "report pulls an external resource"
+    );
 }
 
 /// The embedded data must carry one median value per frequency bin, and the
@@ -150,7 +156,11 @@ fn embedded_data_matches_spectrogram_size() {
     // The base64 for the noisy spectrogram decodes to n_time * n_freq bytes.
     let b64 = extract_json_string(&html, "noisy:{").expect("noisy spectrogram data");
     let decoded_len = base64_len(&b64);
-    assert_eq!(decoded_len, n_time * n_freq, "noisy data has wrong byte count");
+    assert_eq!(
+        decoded_len,
+        n_time * n_freq,
+        "noisy data has wrong byte count"
+    );
 }
 
 #[test]
