@@ -14,7 +14,7 @@
 //!
 //! [`mix`] combines any of them with a clean signal at an exact SNR.
 //!
-//! Generators return `f64` in `[-1, 1]`, peak-normalised so a clip can be written
+//! Generators return `f64` in `[-1, 1]`, peak-normalized so a clip can be written
 //! straight to a WAV without clipping. Absolute level carries no meaning — [`mix`]
 //! sets the level that matters.
 
@@ -40,8 +40,8 @@ fn n_samples(sr: u32, duration_s: f64) -> Result<usize, DspError> {
     Ok(n as usize)
 }
 
-/// Peak-normalise to [`PEAK`]; all-zero input is returned unchanged.
-fn normalise(mut x: Vec<f64>) -> Vec<f64> {
+/// Peak-normalize to [`PEAK`]; all-zero input is returned unchanged.
+fn normalize(mut x: Vec<f64>) -> Vec<f64> {
     let peak = x.iter().fold(0.0f64, |m, v| m.max(v.abs()));
     if peak <= 0.0 {
         return x;
@@ -90,14 +90,14 @@ pub fn powerline_buzz(
             *o += amp * wobble * (std::f64::consts::TAU * f * t + phase).sin();
         }
     }
-    Ok(normalise(out))
+    Ok(normalize(out))
 }
 
 /// Rhythmic switching buzz — an impulse train that rings a resonance.
 ///
 /// Each tick at `tick_rate_hz` (twice mains, i.e. rectified) excites a damped
 /// sinusoid whose decay is set by `ringing_q`: `tau = Q / (pi * f0)`. Higher Q
-/// rings longer and sounds more tonal. Tick amplitude and centre frequency jitter
+/// rings longer and sounds more tonal. Tick amplitude and center frequency jitter
 /// slightly per tick, which is what makes an inverter sound different from a
 /// clean square wave.
 pub fn solar_inverter(
@@ -114,14 +114,14 @@ pub fn solar_inverter(
 
     let mut out = vec![0.0f64; n];
     let period = sr as f64 / tick_rate_hz;
-    let centre_hz = 3_000.0f64.min(sr as f64 / 4.0);
+    let center_hz = 3_000.0f64.min(sr as f64 / 4.0);
     let n_ticks = (n as f64 / period) as usize;
     for i in 0..=n_ticks {
         let start = (i as f64 * period).round() as usize;
         if start >= n {
             break;
         }
-        let f0 = centre_hz * rng.uniform_in(0.9, 1.1);
+        let f0 = center_hz * rng.uniform_in(0.9, 1.1);
         let tau = ringing_q / (std::f64::consts::PI * f0);
         // Truncate each ring at ~5 tau; beyond that it is below -43 dB and just costs time.
         let length = (n - start).min((5.0 * tau * sr as f64).round() as usize + 1);
@@ -131,7 +131,7 @@ pub fn solar_inverter(
             *o += amp * (-tt / tau).exp() * (std::f64::consts::TAU * f0 * tt).sin();
         }
     }
-    Ok(normalise(out))
+    Ok(normalize(out))
 }
 
 /// Gaussian white noise — the flat, structureless control case.
@@ -142,7 +142,7 @@ pub fn solar_inverter(
 pub fn white(sr: u32, duration_s: f64, seed: u64) -> Result<Vec<f64>, DspError> {
     let n = n_samples(sr, duration_s)?;
     let mut rng = SeededRng::new(seed);
-    Ok(normalise(rng.standard_normal_vec(n)))
+    Ok(normalize(rng.standard_normal_vec(n)))
 }
 
 /// Wideband raised noise floor — PLC / VDSL / Ethernet-over-powerline hash.
@@ -159,7 +159,7 @@ pub fn vdsl_hash(sr: u32, duration_s: f64, seed: u64) -> Result<Vec<f64>, DspErr
     let high = 0.45 * (sr as f64 / 2.0);
     if low >= high {
         return Err(DspError::new(
-            "sr is too low to synthesise VDSL hash (needs > ~1.4 kHz)",
+            "sr is too low to synthesize VDSL hash (needs > ~1.4 kHz)",
         ));
     }
     let mut shaped = rng.standard_normal_vec(n);
@@ -176,7 +176,7 @@ pub fn vdsl_hash(sr: u32, duration_s: f64, seed: u64) -> Result<Vec<f64>, DspErr
             *v += 0.06 * (std::f64::consts::TAU * f * t + phase).sin();
         }
     }
-    Ok(normalise(shaped))
+    Ok(normalize(shaped))
 }
 
 /// Static crashes — Poisson-timed broadband bursts with exponential decay.
@@ -215,7 +215,7 @@ pub fn atmospheric_qrn(
     }
 
     butter_lowpass(2, high, sr)?.filter(&mut out);
-    Ok(normalise(out))
+    Ok(normalize(out))
 }
 
 /// Add `noise` to `clean` at exactly `snr_db`, by signal-to-noise power ratio.
@@ -223,7 +223,7 @@ pub fn atmospheric_qrn(
 /// The noise is rescaled — the clean signal is never touched — so the caller's
 /// reference stays sample-aligned with the mix, which is what
 /// [`crate::dsp::metrics::effective_snr_gain`] needs. The result is *not*
-/// normalised: peak-normalising here would silently change the SNR the caller
+/// normalized: peak-normalizing here would silently change the SNR the caller
 /// just asked for. Clip-check before writing a WAV.
 pub fn mix(clean: &[f64], noise: &[f64], snr_db: f64) -> Result<Vec<f64>, DspError> {
     if clean.len() != noise.len() {

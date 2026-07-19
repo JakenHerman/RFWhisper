@@ -63,7 +63,7 @@ fn output_stays_time_aligned_with_input() {
     }
     let y = eng.process(&x, SR);
 
-    // Centre of mass of |y| should land near the burst, not delayed far past it.
+    // Center of mass of |y| should land near the burst, not delayed far past it.
     let energy: f32 = y.iter().map(|v| v * v).sum();
     if energy > 1e-6 {
         let com: f32 = y
@@ -75,7 +75,7 @@ fn output_stays_time_aligned_with_input() {
         let drift = (com - burst_at as f32).abs();
         assert!(
             drift < SR as f32 * 0.1, // within 100 ms of the input burst
-            "output energy centre drifted {drift} samples from the input burst — \
+            "output energy center drifted {drift} samples from the input burst — \
              delay compensation regressed"
         );
     }

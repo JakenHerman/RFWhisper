@@ -3,7 +3,7 @@
 //! Not a replacement for DeepFilterNet3 on air; use for pipeline / latency /
 //! regression wiring.
 //!
-//! The OLA normalisation clamps the window-sum divisor to a fraction of its
+//! The OLA normalization clamps the window-sum divisor to a fraction of its
 //! interior value (see #110): the Python original divided masked frames by a
 //! near-zero window-sum at the very first/last analysis window, which could
 //! overshoot boundary samples by ~40x. Clamping attenuates those partial-overlap

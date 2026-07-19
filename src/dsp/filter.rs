@@ -24,7 +24,7 @@ pub struct Biquad {
 }
 
 impl Biquad {
-    /// Build from unnormalised coefficients, dividing through by `a0`.
+    /// Build from unnormalized coefficients, dividing through by `a0`.
     fn from_raw(b0: f64, b1: f64, b2: f64, a0: f64, a1: f64, a2: f64) -> Self {
         Self {
             b0: b0 / a0,

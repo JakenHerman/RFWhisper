@@ -1,5 +1,5 @@
 //! Report tests (#115): spectrogram dimensions, self-containment, section
-//! presence, and the SNR-tile / reference behaviour.
+//! presence, and the SNR-tile / reference behavior.
 
 use rfwhisper::report::{
     build_report, render_html, spectrogram, REPORT_F_MAX_HZ, REPORT_HOP, REPORT_N_FFT,

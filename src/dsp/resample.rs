@@ -7,7 +7,7 @@
 //! those two rates (the v0.1 model I/O pair).
 //!
 //! The filter design mirrors SciPy's `resample_poly` defaults (Kaiser β=5.0
-//! windowed sinc, `2 * 10 * max(up, down) + 1` taps) so behaviour matches the
+//! windowed sinc, `2 * 10 * max(up, down) + 1` taps) so behavior matches the
 //! original Python package: polyphase rather than FFT resampling avoids the edge
 //! artefacts that would surface in the streaming path.
 
@@ -58,7 +58,7 @@ fn firwin_kaiser(numtaps: usize, cutoff: f64, beta: f64) -> Vec<f64> {
     let mut h: Vec<f64> = (0..numtaps)
         .map(|i| cutoff * sinc(cutoff * (i as f64 - alpha)) * win[i])
         .collect();
-    // Normalise unity gain at DC (firwin scale=True with a passband at 0 Hz).
+    // Normalize unity gain at DC (firwin scale=True with a passband at 0 Hz).
     let s: f64 = h.iter().sum();
     for v in &mut h {
         *v /= s;

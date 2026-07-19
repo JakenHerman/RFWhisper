@@ -59,7 +59,7 @@ fn different_seeds_produce_different_audio() {
 }
 
 #[test]
-fn generators_are_peak_normalised_and_finite() {
+fn generators_are_peak_normalized_and_finite() {
     for k in [
         NoiseKind::Powerline,
         NoiseKind::Inverter,
