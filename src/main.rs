@@ -10,6 +10,7 @@ use rfwhisper::constants::DEFAULT_BLOCKSIZE;
 use rfwhisper::denoise::select_engine;
 use rfwhisper::models::fetch;
 use rfwhisper::realtime;
+use rfwhisper::samples;
 
 #[derive(Parser)]
 #[command(
@@ -56,22 +57,67 @@ enum Command {
 enum SamplesCommand {
     /// Generate a test WAV (seeded — same flags always produce the same file).
     Synth(SynthArgs),
+    /// List available signal kinds, noise kinds, and named presets.
+    List,
 }
 
-#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+/// Every generator `samples synth` can emit, clean and noise in one namespace.
+///
+/// `Speech` and `Impulses` are the pre-reconciliation names for `Ssb` and `Qrn`.
+/// CONTRIBUTING tells contributors to paste `samples synth` invocations into PR
+/// testing criteria, so those spellings stay valid rather than silently failing
+/// in an already-written PR.
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 enum SignalKind {
-    /// AM-modulated tone stack standing in for SSB speech.
+    /// Formant-model voice band-limited to the 300 Hz-2.7 kHz SSB passband.
+    Ssb,
+    /// Alias for `ssb`.
     Speech,
-    /// Keyed 600 Hz CW ("CQ", 5 ms raised-cosine edges).
+    /// Keyed 600 Hz CW ("CQ", 20 WPM, 5 ms raised-cosine edges).
     Cw,
+    /// FT8-shaped 8-GFSK: 6.25 Hz tone spacing, 0.16 s symbols.
+    Ft8,
+    /// Recovered narrowband-FM audio (wider passband than SSB).
+    VhfFm,
     /// Gaussian white noise.
     White,
-    /// 60 Hz powerline buzz + harmonics + hash.
+    /// 60 Hz powerline buzz: 30 harmonics with per-harmonic wobble.
     Powerline,
-    /// Atmospheric-QRN static crashes.
+    /// Solar/MPPT inverter switching: a ringing impulse train.
+    Inverter,
+    /// VDSL / PLC hash: band-limited noise plus residual carriers.
+    Vdsl,
+    /// Atmospheric-QRN static crashes (Poisson-timed).
+    Qrn,
+    /// Alias for `qrn`.
     Impulses,
-    /// clean + noise mixed at --snr-db (see --clean / --noise).
+    /// clean + noise mixed at --snr-db (see --clean / --noise / --preset).
     Mix,
+}
+
+impl SignalKind {
+    /// The clean-signal generator this kind maps to, if it is one.
+    fn as_signal(self) -> Option<samples::SignalKind> {
+        match self {
+            Self::Ssb | Self::Speech => Some(samples::SignalKind::Ssb),
+            Self::Cw => Some(samples::SignalKind::Cw),
+            Self::Ft8 => Some(samples::SignalKind::Ft8),
+            Self::VhfFm => Some(samples::SignalKind::VhfFm),
+            _ => None,
+        }
+    }
+
+    /// The noise generator this kind maps to, if it is one.
+    fn as_noise(self) -> Option<samples::NoiseKind> {
+        match self {
+            Self::White => Some(samples::NoiseKind::White),
+            Self::Powerline => Some(samples::NoiseKind::Powerline),
+            Self::Inverter => Some(samples::NoiseKind::Inverter),
+            Self::Vdsl => Some(samples::NoiseKind::Vdsl),
+            Self::Qrn | Self::Impulses => Some(samples::NoiseKind::Qrn),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Args)]
@@ -93,41 +139,96 @@ struct SynthArgs {
     #[arg(long, value_enum, default_value = "powerline")]
     noise: SignalKind,
     /// For --kind mix: target SNR of clean vs noise, in dB.
-    #[arg(long, default_value_t = 0.0)]
+    #[arg(long, default_value_t = 0.0, allow_negative_numbers = true)]
     snr_db: f64,
     /// For --kind mix: also write the clean reference here (for denoise --reference).
     #[arg(long)]
     clean_out: Option<PathBuf>,
+    /// A named clean/noise/SNR combination (implies --kind mix, overrides
+    /// --clean / --noise / --snr-db). See `rfwhisper samples list`.
+    #[arg(long)]
+    preset: Option<String>,
 }
 
-fn synth_signal(kind: SignalKind, n: usize, sr: u32, seed: u64) -> Result<Vec<f32>, String> {
-    use rfwhisper::samples;
-    Ok(match kind {
-        SignalKind::Speech => samples::speech_like(n, sr, seed),
-        SignalKind::Cw => samples::cw(n, sr, 20),
-        SignalKind::White => samples::white(n, seed),
-        SignalKind::Powerline => samples::powerline(n, sr, seed),
-        SignalKind::Impulses => samples::impulses(n, sr, seed),
-        SignalKind::Mix => return Err("mix cannot be a mix component".into()),
-    })
+fn cmd_samples_list() {
+    println!("signals:  ssb (speech)  cw  ft8  vhf-fm");
+    println!("noise:    powerline  inverter  vdsl  qrn (impulses)  white");
+    println!(
+        "
+presets (--preset <name>, implies --kind mix):"
+    );
+    for p in &samples::PRESETS {
+        println!(
+            "  {:<22} {} + {} @ {:+.0} dB SNR",
+            p.name,
+            p.signal.as_str(),
+            p.noise.as_str(),
+            p.snr_db
+        );
+    }
 }
 
 fn cmd_samples_synth(args: SynthArgs) -> Result<(), String> {
-    use rfwhisper::samples;
-    let n = (args.seconds * args.sr as f64) as usize;
-    let signal = match args.kind {
-        SignalKind::Mix => {
-            let clean = synth_signal(args.clean, n, args.sr, args.seed)?;
-            let noise = synth_signal(args.noise, n, args.sr, args.seed.wrapping_add(1))?;
-            if let Some(clean_out) = &args.clean_out {
-                samples::write_wav(clean_out, &clean, args.sr)?;
-                println!("wrote clean reference {}", clean_out.display());
-            }
-            samples::mix_at_snr(&clean, &noise, args.snr_db)
-        }
-        kind => synth_signal(kind, n, args.sr, args.seed)?,
+    // A preset names the whole triple, so it implies mix and wins over the flags.
+    let resolved = match &args.preset {
+        Some(name) => Some(
+            *samples::preset(name)
+                .ok_or_else(|| format!("unknown preset {name:?}; run `rfwhisper samples list`"))?,
+        ),
+        None => None,
     };
-    samples::write_wav(&args.out, &signal, args.sr)?;
+
+    if resolved.is_some() || args.kind == SignalKind::Mix {
+        let (sig, noise, snr) = match resolved {
+            Some(p) => (p.signal, p.noise, p.snr_db),
+            None => (
+                args.clean
+                    .as_signal()
+                    .ok_or_else(|| format!("--clean {:?} is a noise kind", args.clean))?,
+                args.noise
+                    .as_noise()
+                    .ok_or_else(|| format!("--noise {:?} is a signal kind", args.noise))?,
+                args.snr_db,
+            ),
+        };
+        let fx = samples::render_mix(sig, noise, snr, args.sr, args.seconds, args.seed)
+            .map_err(|e| e.to_string())?;
+        samples::write_wav(&args.out, &fx.noisy, fx.sr).map_err(|e| e.to_string())?;
+        if let Some(clean_out) = &args.clean_out {
+            samples::write_wav(clean_out, &fx.clean, fx.sr).map_err(|e| e.to_string())?;
+            println!("wrote clean reference {}", clean_out.display());
+        }
+        println!(
+            "wrote {} (mix: {} + {} @ {:+.1} dB, {:.1}s @ {} Hz, seed {})",
+            args.out.display(),
+            sig.as_str(),
+            noise.as_str(),
+            snr,
+            args.seconds,
+            args.sr,
+            args.seed
+        );
+        if fx.headroom_scale < 1.0 {
+            // Deeply negative SNRs push the mix well above full scale; both
+            // channels are scaled together so the ratio is untouched.
+            println!(
+                "note: scaled both channels by {:.4} to fit headroom (SNR unchanged)",
+                fx.headroom_scale
+            );
+        }
+        return Ok(());
+    }
+
+    let signal = if let Some(sig) = args.kind.as_signal() {
+        sig.render(args.sr, args.seconds, args.seed)
+    } else if let Some(noise) = args.kind.as_noise() {
+        noise.render(args.sr, args.seconds, args.seed)
+    } else {
+        return Err(format!("{:?} cannot be generated on its own", args.kind));
+    }
+    .map_err(|e| e.to_string())?;
+
+    samples::write_wav(&args.out, &signal, args.sr).map_err(|e| e.to_string())?;
     println!(
         "wrote {} ({:?}, {:.1}s @ {} Hz, seed {})",
         args.out.display(),
@@ -138,7 +239,6 @@ fn cmd_samples_synth(args: SynthArgs) -> Result<(), String> {
     );
     Ok(())
 }
-
 #[derive(Args)]
 struct DenoiseArgs {
     #[arg(long, short)]
@@ -374,6 +474,12 @@ fn main() -> ExitCode {
         Command::Samples {
             command: SamplesCommand::Synth(args),
         } => cmd_samples_synth(args).map(|()| 0),
+        Command::Samples {
+            command: SamplesCommand::List,
+        } => {
+            cmd_samples_list();
+            Ok(0)
+        }
     };
     match result {
         Ok(code) => ExitCode::from(code.clamp(0, 255) as u8),
