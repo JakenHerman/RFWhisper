@@ -24,9 +24,22 @@
          RFWhisper — cleaner copy, calmer bands.
 ```
 
-RFWhisper is a **fully local, open-source, real-time ML-powered noise-reduction tool** built specifically for amateur radio. It wraps a ham-tuned deep learning denoiser (**DeepFilterNet3** primary, **RNNoise** fallback) inside a GNU Radio + SoapySDR + ONNX Runtime pipeline, so you can pull weak signals out of the modern RFI soup without streaming your audio to a cloud service you don't trust.
+RFWhisper is a **fully local, open-source, real-time ML-powered noise-reduction tool** built specifically for amateur radio. The goal: wrap a ham-tuned deep learning denoiser (**DeepFilterNet3** primary, **RNNoise** fallback) inside a GNU Radio + SoapySDR + ONNX Runtime pipeline, so you can pull weak signals out of the modern RFI soup without streaming your audio to a cloud service you don't trust.
 
 **Everything runs on your machine.** Your shack. Your GPU. Your rules. 73.
+
+> ### ⚠️ Early alpha — the neural denoiser is not built yet
+>
+> The CLI, DSP core, fixture generator, metrics harness, and model registry all
+> work and are tested. The thing in the middle that actually removes noise is
+> still a placeholder: a classical spectral-subtraction stub measuring **+1.1 dB
+> SNR gain at best**, against a v0.1 target of +3 dB average and +6 dB on
+> powerline buzz.
+>
+> **Do not expect this to clean up your audio today.** It is a working pipeline
+> with a placeholder in the denoiser slot. See
+> [#117](https://github.com/JakenHerman/RFWhisper/issues/117) for the measurements
+> and [#10](https://github.com/JakenHerman/RFWhisper/issues/10) for the real backend.
 
 ---
 
@@ -75,15 +88,34 @@ And because it's **local-first** and **open-source (GPLv3)**, you can:
 
 ## Features
 
-### Shipping in v0.1 (Audio-Only MVP)
+### Working today (alpha)
 
-- [x] Real-time audio denoising with DeepFilterNet3 (ONNX Runtime)
-- [x] RNNoise fallback for ultra-low-power devices (RPi Zero 2, old laptops)
-- [x] Virtual audio cable output (VB-Cable on Windows, BlackHole on macOS, JACK/ALSA loopback on Linux) → drop-in for WSJT-X, fldigi, JS8Call, SDR#, SDRuno, Quisk
-- [x] CLI + minimal GUI with before/after A/B toggle
-- [x] Latency < 100 ms end-to-end on a modern laptop (target 40–60 ms)
-- [x] Before/after WAV recording for sharing and testing
-- [x] Cross-platform: Linux, macOS, Windows, Raspberry Pi 5
+> **The neural denoiser is not built yet.** `--model deepfilternet3` currently warns
+> and falls back to a classical spectral-subtraction stub that measures **+1.1 dB SNR
+> gain at its very best** — against a v0.1 target of +3 dB average and +6 dB on
+> powerline buzz. The stub exists to wire and test the pipeline, not to clean up your
+> audio. Tracked in [#117](https://github.com/JakenHerman/RFWhisper/issues/117); the
+> real backend is [#10](https://github.com/JakenHerman/RFWhisper/issues/10).
+>
+> Everything below is honest about what runs. If you are here for working noise
+> reduction on air, star the repo and come back for v0.1 final.
+
+- [x] Offline WAV denoise CLI (`rfwhisper denoise`) with a JSON metrics report
+- [x] Deterministic fixture synthesis (`rfwhisper samples synth`) — SSB / CW / FT8 / VHF-FM signals and powerline / inverter / VDSL / QRN noise, generated from a seed
+- [x] Measurement harness: matched-filter SNR gain, keying-onset RMS, RTF and latency probes
+- [x] ONNX model registry, execution-provider auto-select, and SHA-pinned fetch manifest — wired and tested, awaiting a backend to feed
+- [x] Audio device enumeration (`rfwhisper audio list`); realtime duplex path implemented, not yet gate-verified
+- [x] Cross-platform build: Linux, macOS, Windows
+
+### Planned for v0.1 (Audio-Only MVP)
+
+- [ ] Real-time audio denoising with DeepFilterNet3 (ONNX Runtime) — [#10](https://github.com/JakenHerman/RFWhisper/issues/10)
+- [ ] RNNoise fallback for ultra-low-power devices (RPi Zero 2, old laptops) — [#11](https://github.com/JakenHerman/RFWhisper/issues/11)
+- [ ] Virtual audio cable output (VB-Cable on Windows, BlackHole on macOS, JACK/ALSA loopback on Linux) → drop-in for WSJT-X, fldigi, JS8Call, SDR#, SDRuno, Quisk — [#4](https://github.com/JakenHerman/RFWhisper/issues/4)
+- [ ] Minimal GUI with before/after A/B toggle — [#18](https://github.com/JakenHerman/RFWhisper/issues/18) (`rfwhisper gui` currently prints a pointer to the roadmap)
+- [ ] Latency < 100 ms end-to-end on a modern laptop (target 40–60 ms) — [#22](https://github.com/JakenHerman/RFWhisper/issues/22)
+- [ ] Before/after WAV recording for sharing and testing — [#77](https://github.com/JakenHerman/RFWhisper/issues/77)
+- [ ] Raspberry Pi 5 verified
 
 ### Coming in v0.2–v1.0 (see [ROADMAP.md](./ROADMAP.md))
 
@@ -117,9 +149,24 @@ And because it's **local-first** and **open-source (GPLv3)**, you can:
                                                  └───────────────────────────┘
 ```
 
-**Primary denoiser: DeepFilterNet3.** A two-stage deep-filtering network trained on speech + noise. It beats RNNoise on PESQ and STOI while staying fast enough for realtime on a laptop CPU. We ship a ham-fine-tuned ONNX export and make it easy to swap in your own.
+The diagram is the v0.2+ target architecture. Today the chain is
+`WAV or audio device → DSP → denoise engine → WAV or audio device`; the SDR and
+GNU Radio legs are v0.2 ([#29](https://github.com/JakenHerman/RFWhisper/issues/29)–[#38](https://github.com/JakenHerman/RFWhisper/issues/38)).
 
-**Fallback: RNNoise.** 40 kHz-ish features, GRU-based, runs on a potato. We ship a ham-retuned build as a backup for RPi Zero-class hardware.
+**Planned primary denoiser: DeepFilterNet3.** A two-stage deep-filtering network
+trained on speech + noise. It beats RNNoise on PESQ and STOI while staying fast
+enough for realtime on a laptop CPU. The plan is to ship a ham-fine-tuned ONNX
+export and make it easy to swap in your own — **not yet implemented**
+([#10](https://github.com/JakenHerman/RFWhisper/issues/10)).
+
+**Planned fallback: RNNoise.** 40 kHz-ish features, GRU-based, runs on a potato.
+Intended as the backup for RPi Zero-class hardware
+([#11](https://github.com/JakenHerman/RFWhisper/issues/11)).
+
+**Shipping today: a spectral-subtraction stub.** Stationary-noise Wiener-ish
+masking, ~+1 dB SNR gain. It exists so the framing, overlap-add, realtime
+threading, and metrics have something to carry end to end while the neural
+backends are built.
 
 **Why ONNX Runtime?** Cross-platform, great CPU performance with XNNPACK/CoreML/DirectML, optional CUDA/TensorRT/ROCm on beefier rigs, and it lets the community swap in new models without recompiling anything.
 
@@ -145,45 +192,62 @@ And because it's **local-first** and **open-source (GPLv3)**, you can:
 ```bash
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
-cargo build --release          # single static binary at target/release/rfwhisper
-# Pull the pre-converted ONNX models (DeepFilterNet3 + ham-tuned RNNoise)
-cargo run --release -- models fetch
+cargo build --release          # single binary at target/release/rfwhisper
 ```
 
-### Denoise a WAV file (offline A/B)
+`rfwhisper models fetch` pulls the pinned ONNX artifacts, but nothing consumes them
+yet ([#117](https://github.com/JakenHerman/RFWhisper/issues/117)) — skip it for now.
+
+### Make yourself a noisy signal
+
+No downloads and no sample pack: the fixtures are generated from a seed, so these
+commands produce byte-identical audio on any machine.
+
+```bash
+rfwhisper samples list          # available signals, noise types, and presets
+
+# An S3 SSB signal buried under an S7 powerline buzz (-24 dB SNR).
+# --out is the noisy mix; --clean-out is the reference it was mixed from.
+rfwhisper samples synth --kind mix --preset ssb_powerline_s3_s7 \
+  --out ssb.wav --clean-out ssb.clean.wav
+```
+
+### Denoise it (offline A/B)
 
 ```bash
 rfwhisper denoise \
-  --input  samples/noisy_40m_ssb.wav \
-  --output cleaned.wav \
-  --model  deepfilternet3 \
-  --report report.json
+  --input     ssb.wav \
+  --output    cleaned.wav \
+  --reference ssb.clean.wav \
+  --model     spectral_stub \
+  --report    report.json
 ```
 
-`report.json` contains: SNR gain estimate, average inference time, RTF (real-time factor), and a before/after spectrogram PNG path.
+`report.json` carries the measured SNR gain against the reference, inference time,
+and RTF. Listen to `ssb.clean.wav`, `ssb.wav`, and `cleaned.wav` back to back —
+and note that on this build the third file will not sound much better than the
+second. That is [#117](https://github.com/JakenHerman/RFWhisper/issues/117), and it
+is the whole reason v0.1 has not shipped.
 
 ### Real-time from microphone / rig audio
 
-```bash
-# List audio devices
-rfwhisper audio list
+Implemented, but not yet verified against the latency and stability gates.
 
-# Pipe rig audio (input 3) → denoiser → virtual cable (output 5) in real time
-rfwhisper denoise-live --in 3 --out 5 --model deepfilternet3 --blocksize 480
+```bash
+rfwhisper audio list            # list audio devices
+
+# Pipe rig audio (input 3) → denoiser → virtual cable (output 5)
+rfwhisper denoise-live --in 3 --out 5 --model spectral_stub --blocksize 480
 ```
 
 Then point WSJT-X / fldigi / JS8Call at the virtual cable as their input.
 
-### GUI (alpha)
+### GUI
 
-```bash
-rfwhisper gui
-```
-
-- Pick input + output devices
-- Toggle A/B bypass with a big obvious button
-- Record raw + cleaned audio simultaneously for sharing
-- Live latency/CPU/RTF display
+Not built yet — `rfwhisper gui` prints a pointer to the roadmap. Device picker, A/B
+bypass, dual-stream recording, and live telemetry are
+[#18](https://github.com/JakenHerman/RFWhisper/issues/18) and the v0.4 GUI epic
+([#70](https://github.com/JakenHerman/RFWhisper/issues/70)–[#78](https://github.com/JakenHerman/RFWhisper/issues/78)).
 
 ---
 
@@ -204,7 +268,9 @@ RFWhisper is designed to be **ruthlessly lightweight** so field ops (POTA, SOTA,
 
 ## Testable Success Examples
 
-Every milestone in this project has an **explicit, measurable success criterion**. If you can't demo it to another ham and have them say "that's clearly better", it doesn't ship. Some concrete examples for v0.1:
+Every milestone in this project has an **explicit, measurable success criterion**. If you can't demo it to another ham and have them say "that's clearly better", it doesn't ship. Some concrete examples for v0.1.
+
+**None of these pass today** — they are the definition of done for v0.1, not a description of the current build. The harness that measures them exists and runs; the denoiser it measures does not (see [#117](https://github.com/JakenHerman/RFWhisper/issues/117)).
 
 ### Example 1: Weak 40m SSB under power-line noise
 
@@ -229,7 +295,7 @@ Every milestone in this project has an **explicit, measurable success criterion*
 - **Setup:** Measure round-trip latency from audio in → denoised audio out.
 - **Pass criterion:** < 100 ms p99 on an Intel i5-8xxx / Apple M1 / RPi 5 at 48 kHz. Stretch: < 50 ms by v0.3.
 
-Scripts for all of these live in `tests/audio/` and run in CI. See [ROADMAP.md](./ROADMAP.md) for the full list.
+The metrics behind these live in `src/dsp/metrics.rs`, the fixtures they run against in `src/samples/`, and the tests in `tests/`. Gate tests are `#[ignore]`-marked and run with `cargo test --release -- --ignored gate_`. See [ROADMAP.md](./ROADMAP.md) for the full list.
 
 ---
 
