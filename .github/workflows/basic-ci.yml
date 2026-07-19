@@ -129,8 +129,13 @@ jobs:
         env:
           RFWHISPER_ALLOW_MISSING_MODEL: "1"
 
-      - name: Run acceptance gates
-        run: cargo test --release -- --ignored gate_ || echo "No gates implemented yet (pre-v0.1)."
+      # Gates run with `--features dfn` so they measure the REAL DeepFilterNet3
+      # backend, not the spectral stub (RTF/quality on the stub prove nothing).
+      # This pulls the tract inference tree, so it lives only in this nightly /
+      # on-demand lane — never the fast PR path (#91). The DFN3 model is bundled
+      # in the crate, so no extra weights fetch is needed for the happy path.
+      - name: Run acceptance gates (real backend)
+        run: cargo test --release --features dfn -- --ignored gate_ || echo "No gates implemented yet (pre-v0.1)."
 
       - name: Upload before/after artifacts + reports
         if: always()
