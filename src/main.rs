@@ -252,6 +252,10 @@ struct DenoiseArgs {
     reference: Option<PathBuf>,
     #[arg(long)]
     report: Option<PathBuf>,
+    /// Write a self-contained before/after HTML report to this path (#115).
+    /// `report.json`'s `spectrogram_path` then points at it.
+    #[arg(long)]
+    spectrogram: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -358,9 +362,11 @@ fn cmd_denoise(args: DenoiseArgs) -> Result<(), (u8, String)> {
     }
     writer.finalize().map_err(|e| io_err(e.to_string()))?;
 
-    // snr_gain_db (A1): matched-filter gain of denoised vs noisy against the clean ref.
-    let snr_gain_db = match &args.reference {
-        None => serde_json::Value::Null,
+    let f64s = |v: &[f32]| v.iter().map(|x| *x as f64).collect::<Vec<f64>>();
+
+    // Read the clean reference once; it feeds both the A1 gain and the HTML report.
+    let clean = match &args.reference {
+        None => None,
         Some(ref_path) => {
             let (clean, ref_sr) = read_mono_strict(ref_path)?;
             if ref_sr != sr {
@@ -369,14 +375,18 @@ fn cmd_denoise(args: DenoiseArgs) -> Result<(), (u8, String)> {
                     format!("reference sample rate {ref_sr} != input sample rate {sr}"),
                 ));
             }
-            let f64s = |v: &[f32]| v.iter().map(|x| *x as f64).collect::<Vec<f64>>();
-            let gain = rfwhisper::dsp::metrics::effective_snr_gain(
-                &f64s(&clean),
-                &f64s(&mono),
-                &f64s(&y),
-                sr,
-            )
-            .map_err(|e| (EXIT_BAD_INPUT, e.to_string()))?;
+            Some(f64s(&clean))
+        }
+    };
+
+    // snr_gain_db (A1): matched-filter gain of denoised vs noisy against the clean ref.
+    let (noisy_f64, denoised_f64) = (f64s(&mono), f64s(&y));
+    let snr_gain_db = match &clean {
+        None => serde_json::Value::Null,
+        Some(clean) => {
+            let gain =
+                rfwhisper::dsp::metrics::effective_snr_gain(clean, &noisy_f64, &denoised_f64, sr)
+                    .map_err(|e| (EXIT_BAD_INPUT, e.to_string()))?;
             // JSON has no inf/nan; the sentinels degrade to null with a note on stdout.
             if gain.is_finite() {
                 serde_json::json!(gain)
@@ -384,6 +394,23 @@ fn cmd_denoise(args: DenoiseArgs) -> Result<(), (u8, String)> {
                 eprintln!("note: snr gain sentinel ({gain}); reported as null");
                 serde_json::Value::Null
             }
+        }
+    };
+
+    // Self-contained before/after HTML report (#115).
+    let spectrogram_path = match &args.spectrogram {
+        None => serde_json::Value::Null,
+        Some(html_path) => {
+            let data = rfwhisper::report::build_report(
+                &model,
+                &noisy_f64,
+                &denoised_f64,
+                clean.as_deref(),
+                sr,
+            )
+            .map_err(|e| (EXIT_BAD_INPUT, e.to_string()))?;
+            rfwhisper::report::write_html(html_path, &data).map_err(|e| io_err(e.to_string()))?;
+            serde_json::json!(html_path.display().to_string())
         }
     };
 
@@ -396,7 +423,7 @@ fn cmd_denoise(args: DenoiseArgs) -> Result<(), (u8, String)> {
         "inference_time_ms": stats.wall_seconds * 1000.0,
         "rtf": stats.rtf(),
         "snr_gain_db": snr_gain_db,
-        "spectrogram_path": serde_json::Value::Null,
+        "spectrogram_path": spectrogram_path,
     });
     let rendered = serde_json::to_string_pretty(&rep).expect("serialize report");
     println!("{rendered}");
