@@ -16,7 +16,7 @@ pub enum EngineError {
          DFN3-backend issue); set RFWHISPER_FORCE_STUB=1 or use --model spectral_stub"
     )]
     OnnxUnavailable,
-    /// The DeepFilterNet3 backend failed to initialise (feature `dfn`).
+    /// The DeepFilterNet3 backend failed to initialize (feature `dfn`).
     #[error("{0}")]
     BackendInit(String),
 }

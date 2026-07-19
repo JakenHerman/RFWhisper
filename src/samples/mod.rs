@@ -183,7 +183,7 @@ pub struct MixedFixture {
 ///
 /// At the deeply negative SNRs the presets use, [`synth::mix`] has to scale the
 /// noise far above full scale — an S3 signal under an S7 floor is −24 dB, so the
-/// noise comes out ~16x hotter than a peak-normalised clean signal. Writing that
+/// noise comes out ~16x hotter than a peak-normalized clean signal. Writing that
 /// straight to a WAV clips it to hash. Both channels are therefore scaled by one
 /// shared factor to fit the headroom: SNR is a *ratio*, so uniform scaling leaves
 /// it untouched, and scaling the reference by the same factor keeps it sample- and

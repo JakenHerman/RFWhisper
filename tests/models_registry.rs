@@ -122,7 +122,7 @@ fn test_load_rnnoise_missing_weights_falls_back() {
 /// Env-var cases run in ONE test because env vars are process-global and the
 /// test harness runs tests in parallel.
 #[test]
-fn test_resolve_intra_op_threads_env_behaviour() {
+fn test_resolve_intra_op_threads_env_behavior() {
     // Default when unset.
     std::env::remove_var("RFWHISPER_ORT_INTRA_OP");
     assert_eq!(resolve_intra_op_threads(), 2);

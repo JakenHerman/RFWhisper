@@ -15,7 +15,7 @@
 //!    *where in frequency* the denoiser is working
 //!
 //! The spectrogram is a 2048-pt FFT with a 512-sample hop, displayed 0–4 kHz —
-//! the band where SSB/CW/FT8 energy lives. Magnitudes are quantised to one byte
+//! the band where SSB/CW/FT8 energy lives. Magnitudes are quantized to one byte
 //! over a shared dB window and base64-embedded, so a six-second clip is tens of
 //! kilobytes rather than a megabyte of JSON.
 
@@ -35,7 +35,7 @@ pub const REPORT_HOP: usize = 512;
 /// Top of the displayed frequency band, in Hz.
 pub const REPORT_F_MAX_HZ: f64 = 4_000.0;
 /// Displayed dynamic range below the pair's peak, in dB. Cells quieter than this
-/// clamp to the floor colour, which keeps the shared scale from being dominated
+/// clamp to the floor color, which keeps the shared scale from being dominated
 /// by a single loud bin.
 pub const REPORT_DYNAMIC_RANGE_DB: f64 = 80.0;
 
@@ -101,7 +101,7 @@ pub fn spectrogram(x: &[f64], sr: u32) -> Result<Spectrogram, DspError> {
 
     let n_time = 1 + (x.len() - REPORT_N_FFT) / REPORT_HOP;
     let mut db = vec![0.0; n_time * n_freq];
-    // 20*log10 of a magnitude normalised by the window's coherent gain, so the dB
+    // 20*log10 of a magnitude normalized by the window's coherent gain, so the dB
     // numbers are comparable frame to frame regardless of FFT size.
     let norm = 2.0 / window.iter().sum::<f64>();
     for t in 0..n_time {
@@ -199,7 +199,7 @@ pub fn write_html(path: &Path, data: &ReportData) -> Result<(), DspError> {
 
 /// The shared dB window `[max - range, max]` across the noisy/denoised pair.
 ///
-/// Taken over *both* spectrograms so the two colour ramps mean the same thing —
+/// Taken over *both* spectrograms so the two color ramps mean the same thing —
 /// comparability is the entire reason the panels sit side by side.
 fn shared_db_range(a: &Spectrogram, b: &Spectrogram) -> (f64, f64) {
     let peak =
@@ -211,8 +211,8 @@ fn shared_db_range(a: &Spectrogram, b: &Spectrogram) -> (f64, f64) {
     (peak - REPORT_DYNAMIC_RANGE_DB, peak)
 }
 
-/// Quantise a spectrogram's dB to one byte each over `[lo, hi]`.
-fn quantise(spec: &Spectrogram, lo: f64, hi: f64) -> Vec<u8> {
+/// Quantize a spectrogram's dB to one byte each over `[lo, hi]`.
+fn quantize(spec: &Spectrogram, lo: f64, hi: f64) -> Vec<u8> {
     let span = (hi - lo).max(1e-9);
     spec.db
         .iter()
@@ -281,8 +281,8 @@ fn spec_js(name: &str, spec: &Spectrogram, bytes: &[u8]) -> String {
 /// and the tests both go through here.
 pub fn render_html(data: &ReportData) -> String {
     let (lo, hi) = shared_db_range(&data.noisy, &data.denoised);
-    let noisy_q = quantise(&data.noisy, lo, hi);
-    let denoised_q = quantise(&data.denoised, lo, hi);
+    let noisy_q = quantize(&data.noisy, lo, hi);
+    let denoised_q = quantize(&data.denoised, lo, hi);
 
     let mut specs = format!(
         "{},{}",
@@ -296,14 +296,14 @@ pub fn render_html(data: &ReportData) -> String {
     );
     match &data.clean {
         Some(c) => {
-            let cq = quantise(c, lo, hi);
+            let cq = quantize(c, lo, hi);
             specs.push_str(&format!(",{}", spec_js("clean", c, &cq)));
             medians.push_str(&format!(",medianClean:{}", js_array(&c.median_spectrum())));
         }
         None => medians.push_str(",medianClean:null"),
     }
 
-    // Frequency axis for the median chart: bin centres of the noisy spectrogram.
+    // Frequency axis for the median chart: bin centers of the noisy spectrogram.
     let bin_hz = data.sr as f64 / REPORT_N_FFT as f64;
     let median_hz: Vec<f64> = (0..data.noisy.n_freq).map(|f| f as f64 * bin_hz).collect();
 

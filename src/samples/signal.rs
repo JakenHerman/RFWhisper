@@ -22,7 +22,7 @@ const SSB_BAND_HZ: (f64, f64) = (300.0, 2_700.0);
 /// Narrowband-FM recovered-audio band; wider top end than SSB.
 const FM_BAND_HZ: (f64, f64) = (300.0, 3_400.0);
 
-fn normalise(mut x: Vec<f64>) -> Vec<f64> {
+fn normalize(mut x: Vec<f64>) -> Vec<f64> {
     let peak = x.iter().fold(0.0f64, |m, v| m.max(v.abs()));
     if peak <= 0.0 {
         return x;
@@ -134,7 +134,7 @@ pub fn cw(
         t += element + dit;
     }
     Ok(CwClip {
-        samples: normalise(samples),
+        samples: normalize(samples),
         onsets,
     })
 }
@@ -180,10 +180,10 @@ fn voice_like(sr: u32, duration_s: f64, band: (f64, f64), seed: u64) -> Result<V
         let pitch =
             f0 * (1.0 + 0.03 * (std::f64::consts::TAU * jitter_hz * t + jitter_phase).sin());
         let mut v = 0.0;
-        for (k, (centre, amp)) in formants.iter().enumerate() {
+        for (k, (center, amp)) in formants.iter().enumerate() {
             // Formants drift a little; a static one sounds like an organ, not a voice.
-            let f = centre * (1.0 + 0.05 * (std::f64::consts::TAU * drift_hz[k] * t).sin());
-            // Harmonic nearest the formant centre, so partials stay on the pitch grid.
+            let f = center * (1.0 + 0.05 * (std::f64::consts::TAU * drift_hz[k] * t).sin());
+            // Harmonic nearest the formant center, so partials stay on the pitch grid.
             let harmonic = (f / pitch).round().max(1.0);
             v += amp * (std::f64::consts::TAU * harmonic * pitch * t).sin();
         }
@@ -191,7 +191,7 @@ fn voice_like(sr: u32, duration_s: f64, band: (f64, f64), seed: u64) -> Result<V
     }
 
     butter_bandpass(4, band.0, band.1, sr)?.filter(&mut out);
-    Ok(normalise(out))
+    Ok(normalize(out))
 }
 
 /// SSB voice in the 300 Hz–2.7 kHz communications passband.
@@ -228,7 +228,7 @@ pub fn ft8(sr: u32, duration_s: f64, base_hz: f64, seed: u64) -> Result<Vec<f64>
 
     let mut out = vec![0.0f64; n];
     // Continuous phase across symbol boundaries — a phase discontinuity would
-    // splatter energy into neighbouring bins and defeat the point of the fixture.
+    // splatter energy into neighboring bins and defeat the point of the fixture.
     let mut phase = 0.0f64;
     let mut i = 0usize;
     while i < n {
@@ -244,5 +244,5 @@ pub fn ft8(sr: u32, duration_s: f64, base_hz: f64, seed: u64) -> Result<Vec<f64>
         }
         i += len;
     }
-    Ok(normalise(out))
+    Ok(normalize(out))
 }
