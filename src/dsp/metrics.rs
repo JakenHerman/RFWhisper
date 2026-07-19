@@ -81,7 +81,14 @@ fn best_lag(x: &[f64], ref_: &[f64], max_lag: usize) -> i64 {
 ///
 /// Returns `+inf` when the residual is exactly zero (`x` is a scaled copy of
 /// `ref_`) — see [`effective_snr_gain`] for what that means for callers.
-fn matched_filter_snr_db(x: &[f64], ref_: &[f64], sr: u32) -> Result<f64, DspError> {
+/// Matched-filter SNR in dB of `x` against clean reference `ref_`.
+///
+/// `x` is aligned to `ref_` by cross-correlation (up to `MAX_ALIGN_MS`), then
+/// projected onto it: the component of `x` parallel to `ref_` is signal, the
+/// residual is noise. This is the per-signal number the A1 report shows before
+/// and after denoising; [`effective_snr_gain`] is just the difference of two of
+/// these. Same `+inf` / `-inf` sentinels as that function.
+pub fn matched_filter_snr_db(x: &[f64], ref_: &[f64], sr: u32) -> Result<f64, DspError> {
     let max_lag = (MAX_ALIGN_MS * sr as f64 / 1000.0).round() as usize;
     let lag = best_lag(x, ref_, max_lag);
     let (x_seg, ref_seg): (&[f64], &[f64]) = if lag >= 0 {
