@@ -1,0 +1,14 @@
+{
+  "file": "onair/ssb_40m_k0abc_01.wav",
+  "mode": "ssb",
+  "band": "40m",
+  "frequency_khz": 7185,
+  "captured_utc": "2026-07-19T14:32:00Z",
+  "receiver": "RTL-SDR v4 + SDR++",
+  "antenna": "40m EFHW at 9 m",
+  "rfi_environment": "suburban, VDSL + LED lighting hash, ~S6 floor",
+  "source": "own-transmission",
+  "license": "CC-BY-4.0",
+  "contributor": "N0XYZ",
+  "notes": "Template sidecar. Copy next to your clip as <clip>.meta.json and fill in. Delete this example when a real clip lands."
+}
