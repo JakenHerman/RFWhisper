@@ -16,6 +16,9 @@ pub enum EngineError {
          DFN3-backend issue); set RFWHISPER_FORCE_STUB=1 or use --model spectral_stub"
     )]
     OnnxUnavailable,
+    /// The DeepFilterNet3 backend failed to initialise (feature `dfn`).
+    #[error("{0}")]
+    BackendInit(String),
 }
 
 /// Wall-clock vs audio-clock stats from an offline `process_file` run.
@@ -37,9 +40,14 @@ impl ProcessStats {
 }
 
 /// One engine = one denoiser. Mono `f32` PCM in; `sr` may differ from the engine's
-/// native rate — implementations resample internally when needed. `Send` because
-/// the realtime path hands the engine to a worker thread.
-pub trait DenoiseEngine: Send {
+/// native rate — implementations resample internally when needed.
+///
+/// Not `Send`: the DeepFilterNet3 backend ([`crate::denoise::dfn`]) wraps tract's
+/// streaming state, which holds `Rc` and cannot cross threads. The realtime path
+/// therefore *constructs* its engine inside the worker thread (see
+/// `realtime::stream_denoise`) rather than moving one in, so nothing here needs to
+/// be `Send`.
+pub trait DenoiseEngine {
     fn native_sr(&self) -> u32 {
         NATIVE_DFN_SR_HZ
     }
@@ -91,11 +99,19 @@ pub fn select_engine(model: &str) -> Result<Box<dyn DenoiseEngine>, EngineError>
         return Err(EngineError::OnnxUnavailable);
     }
     if model == "deepfilternet3" {
-        eprintln!(
-            "warning: deepfilternet3 requested but the DFN3 backend has not landed in the \
-             Rust port yet; using SpectralStubEngine (CI / no-model path)"
-        );
-        return Ok(Box::new(SpectralStubEngine));
+        #[cfg(feature = "dfn")]
+        {
+            return Ok(Box::new(crate::denoise::dfn::DfnEngine::new()?));
+        }
+        #[cfg(not(feature = "dfn"))]
+        {
+            eprintln!(
+                "warning: deepfilternet3 requested but this binary was built without the \
+                 `dfn` feature; using SpectralStubEngine (CI / no-model path). Rebuild with \
+                 `cargo build --features dfn` for the real backend."
+            );
+            return Ok(Box::new(SpectralStubEngine));
+        }
     }
     Err(EngineError::UnknownModel(model.to_string()))
 }

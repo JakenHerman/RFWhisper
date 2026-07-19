@@ -8,6 +8,15 @@ repository = "https://github.com/jakenherman/rfwhisper"
 homepage = "https://rfwhisper.org"
 rust-version = "1.75"
 
+[features]
+# The real DeepFilterNet3 backend (#10). Off by default: it pulls the pure-Rust
+# tract inference tree (tract-core/onnx/pulse/hir) plus the bundled model, which
+# roughly triples build time and binary size. The minimal build stays lean (#91)
+# and CI keeps using the spectral stub; enable with `--features dfn` for a real
+# denoiser. `select_engine("deepfilternet3")` falls back to the stub when off.
+default = []
+dfn = ["dep:deep_filter", "dep:ndarray"]
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 cpal = "0.15"
@@ -17,6 +26,23 @@ serde_json = "1"
 sha2 = "0.10"
 thiserror = "2"
 ureq = "2"
+
+# DeepFilterNet3 backend (feature `dfn`). Pinned to upstream's own Rust crate at
+# a release tag — crates.io only publishes the old 0.2.5 (no inference runtime),
+# so the tract runtime + bundled DeepFilterNet3 model come from the git tag.
+# `default-features = false` drops the vorbis/flac audio decoders we don't need
+# (we read WAV via hound). ndarray matches deep_filter's `^0.15` so the
+# `ArrayView2<f32>` handed to `DfTract::process` is the same type.
+[dependencies.deep_filter]
+git = "https://github.com/Rikorose/DeepFilterNet"
+tag = "v0.5.6"
+default-features = false
+features = ["tract", "default-model"]
+optional = true
+
+[dependencies.ndarray]
+version = "0.15"
+optional = true
 
 [profile.release]
 lto = true

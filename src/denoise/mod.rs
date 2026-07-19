@@ -5,6 +5,8 @@
 //! DFN3 backend issue (upstream DeepFilterNet's reference realtime implementation is
 //! itself Rust — `deep_filter` / libDF).
 
+#[cfg(feature = "dfn")]
+pub mod dfn;
 pub mod engine;
 pub mod spectral_stub;
 

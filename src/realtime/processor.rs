@@ -270,7 +270,11 @@ pub fn stream_denoise(
     model: &str,
     blocksize: usize,
 ) -> Result<(), RealtimeError> {
-    let mut engine = select_engine(model)?;
+    // The engine is built inside the worker thread, not here: the DeepFilterNet3
+    // backend is `!Send` (tract's `Rc` state), so it cannot be moved across the
+    // spawn boundary. The worker reports construction success/failure back over
+    // `ready` so this function can still fail fast with a proper `EngineError`.
+    let model = model.to_string();
     let blocksize = if blocksize == 0 {
         DEFAULT_BLOCKSIZE
     } else {
@@ -291,9 +295,22 @@ pub fn stream_denoise(
     let (out_stream, sr_out) = build_output_stream(&output, out_rx, debug)?;
 
     let worker_stop = stop.clone();
+    let (ready_tx, ready_rx) = sync_channel::<Result<(), EngineError>>(1);
     let worker = std::thread::Builder::new()
         .name("rfwhisper-denoise".into())
         .spawn(move || {
+            // Build the engine here so a `!Send` model never crosses the boundary;
+            // signal the outcome before entering the loop.
+            let mut engine = match select_engine(&model) {
+                Ok(e) => {
+                    let _ = ready_tx.send(Ok(()));
+                    e
+                }
+                Err(e) => {
+                    let _ = ready_tx.send(Err(e));
+                    return;
+                }
+            };
             while !worker_stop.load(Ordering::Relaxed) {
                 let mono = match in_rx.recv_timeout(std::time::Duration::from_millis(200)) {
                     Ok(m) => m,
@@ -315,6 +332,22 @@ pub fn stream_denoise(
             }
         })
         .expect("spawn worker thread");
+
+    // Block until the worker has built its engine, so a bad model fails fast here
+    // (streams never start) rather than silently playing through.
+    match ready_rx.recv() {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => {
+            let _ = worker.join();
+            return Err(RealtimeError::Engine(e));
+        }
+        Err(_) => {
+            let _ = worker.join();
+            return Err(RealtimeError::Device(
+                "denoise worker failed to start".into(),
+            ));
+        }
+    }
 
     in_stream.play().map_err(dev_err)?;
     out_stream.play().map_err(dev_err)?;
