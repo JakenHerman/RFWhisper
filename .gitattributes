@@ -1,3 +1,6 @@
 # Real audio samples are stored with Git LFS (see samples/README.md).
 # Generators are code (src/samples/), not tracked here.
 samples/**/*.wav filter=lfs diff=lfs merge=lfs -text
+
+# Shell scripts must stay LF or they break on Linux (bad interpreter: sh).
+*.sh text eol=lf
