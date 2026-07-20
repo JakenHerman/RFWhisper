@@ -2,144 +2,102 @@
 id: v0_1-test-guide
 title: v0.1 Test Guide
 sidebar_position: 2
-description: Step-by-step acceptance harness for RFWhisper v0.1. Exact pass criteria, reference data, and an end-to-end test script.
+description: The v0.1 acceptance criteria, which are implemented today, and how to run the ones that are.
 ---
 
 # v0.1 Test Guide
 
-This is the **formal acceptance harness** for RFWhisper v0.1. Every criterion below is pinned to an `A*` item in [ROADMAP.md](../roadmap). If you can complete this guide end-to-end on your hardware, you have validated v0.1 in your environment and we'd love your results in the [release discussion](https://github.com/jakenherman/rfwhisper/discussions).
+The v0.1 acceptance criteria (`A1`–`A8`) each pin a measurable claim to a line in
+[ROADMAP.md](../roadmap). This page is honest about **which are implemented today**
+and how to run them — several are still in progress, and this guide tracks reality,
+not the target.
 
-## Checklist (TL;DR)
-
-| # | Criterion | Automated | Pass when |
-|---|---|---|---|
-| A1 | Effective SNR gain on ham speech mix | ✅ | ≥ +3 dB avg, ≥ +6 dB on powerline-dominant |
-| A2 | No FT8 decode regressions | ✅ | Denoised decodes ≥ raw, 0 false decodes |
-| A3 | No CW transient damage | ✅ | RMS in keying-onset window within ±1 dB |
-| A4 | End-to-end latency (p99) | ✅ | &lt; 100 ms on reference hardware |
-| A5 | Real-time factor (RTF) | ✅ | &lt; 0.5 on reference CPU |
-| A6 | No-op sanity (clean → clean) | ✅ | PESQ drop ≤ 0.3, STOI drop ≤ 0.02 |
-| A7 | Cross-platform install | ✅ | Green on Ubuntu 22.04, macOS 13, Windows 11 |
-| A8 | Virtual cable routing docs | manual | A beginner can route in ≤ 10 min |
-
-## Reference hardware (CI runners)
-
-We normalize numbers against these so you can compare apples to apples:
-
-- **Laptop Linux** — Intel i5-8350U, 16 GB, Ubuntu 22.04
-- **Laptop macOS** — Apple M1, 16 GB, macOS 13
-- **Laptop Windows** — AMD Ryzen 5500U, 16 GB, Windows 11
-- **SBC** — Raspberry Pi 5 (8 GB), active cooling, Raspberry Pi OS Bookworm
-
-## Run the full suite
-
-```bash
-# From a clean checkout (audio quality tests need --runslow)
-cargo test --release -- --ignored gate_
-
-# Generates JSON reports + spectrograms under build/audio-reports/
-rfwhisper bench report --out build/audio-reports/report.html
-open build/audio-reports/report.html   # or xdg-open / start
-```
-
-The HTML report has before/after spectrograms, per-criterion pass/fail, and latency histograms.
-
-## Criterion-by-criterion
-
-### A1 — Effective SNR gain
-
-**Intent:** measurable, not just audible, improvement on a ham-speech-plus-noise mix.
-
-```bash
-cargo test --release -- --ignored gate_snr_gain
-```
-
-What it does: takes reference clean speech convolved with measured room IR, mixes with a catalog of real ham noise (powerline buzz, inverter rasp, PLC combs) at SNRs spanning −10 to +20 dB, runs RFWhisper, and computes effective SNR gain via matched-filter correlation against the clean reference.
-
-**Pass:** average gain ≥ +3 dB across the full catalog; powerline-dominant clips must reach ≥ +6 dB.
-
-### A2 — FT8 decode non-regression
-
-**Intent:** a denoiser that increases SNR but breaks decoders is worse than useless.
-
-```bash
-cargo test --release -- --ignored gate_ft8_regression
-```
-
-What it does: replays a 15-minute FT8 cycle (multi-band, curated) through `jt9` (WSJT-X's decoder) twice — once raw, once denoised — and compares decode lists.
-
-**Pass:** `len(denoised_decodes) ≥ len(raw_decodes)` **AND** no decoded message appears in `denoised_decodes` that isn't verifiable against the ground-truth transmit list. Zero false decodes.
-
-### A3 — CW keying transient preservation
-
-**Intent:** never soften the operator's fist.
-
-```bash
-cargo test --release -- --ignored gate_cw_transient
-```
-
-What it does: feeds a 25 WPM CW recording with synthetic QRN crashes; measures RMS energy in the first 5 ms of every dit onset; compares raw vs denoised.
-
-**Pass:** difference within **±1 dB** on every transient in the window (no averaging — a single broken transient fails the gate).
-
-### A4 — End-to-end latency
-
-**Intent:** real-time use in WSJT-X / fldigi / headphones.
-
-```bash
-rfwhisper bench latency samples/noisy_40m_ssb.wav --block 480
-```
-
-What it does: injects an impulse train into the input device, records round-trip, measures p50 / p95 / p99 latency as an HDR histogram.
-
-**Pass:** p99 &lt; 100 ms on reference laptop / M1 / RPi 5.
-
-### A5 — Real-time factor
-
-```bash
-rfwhisper bench rtf samples/noisy_40m_ssb.wav
-```
-
-**Pass:** RTF &lt; 0.5 (i.e., headroom for other tasks) on reference CPU.
-
-### A6 — No-op sanity
-
-**Intent:** clean audio in, clean audio out. Don't damage high-SNR signals.
-
-```bash
-cargo test --release -- --ignored gate_noop_quality
-```
-
-**Pass:** PESQ drop ≤ 0.3, STOI drop ≤ 0.02 on a curated clean-speech set.
-
-### A7 — Cross-platform install
-
-Green CI run on the matrix (ubuntu-22.04 × {3.10, 3.11, 3.12}, macos-13 × {3.11, 3.12}, windows-2022 × {3.11, 3.12}).
-
-### A8 — Virtual cable routing docs
-
-Manual: verify a non-author contributor can route rig audio → RFWhisper → WSJT-X in ≤ 10 minutes following the installation guide for their OS.
-
-## Repro script (single entry-point)
-
-All of the above in one command:
-
-```bash
-./scripts/ci_acceptance.sh --hardware-profile auto
-```
-
-:::tip What to submit if you're helping validate
-
-Run `rfwhisper doctor && ./scripts/ci_acceptance.sh --hardware-profile auto`, gzip `build/audio-reports/`, and post the link + hardware spec in [Discussions](https://github.com/jakenherman/rfwhisper/discussions/categories/acceptance-reports).
-
+:::info Where things stand
+The measurement harness (fixtures, SNR/latency/RTF metrics, the before/after
+report) is built and tested. The gates that wrap it are landing one at a time —
+**A5 first**. A gate marked "in progress" below does not exist as a runnable test
+yet; its issue link is the source of truth.
 :::
+
+## Status at a glance
+
+| # | Criterion | Threshold | Status |
+|---|---|---|---|
+| A1 | Effective SNR gain on speech mix | ≥ +3 dB avg, ≥ +6 dB powerline | 🔬 **needs real speech** — see note ([#20](https://github.com/JakenHerman/RFWhisper/issues/20)) |
+| A2 | No FT8 decode regressions | denoised ≥ raw, 0 false | ⏳ in progress ([#21](https://github.com/JakenHerman/RFWhisper/issues/21)) |
+| A3 | No CW transient damage | keying-onset RMS within ±1 dB | ⏳ in progress ([#3](https://github.com/JakenHerman/RFWhisper/issues/3)) |
+| A4 | End-to-end latency (p99) | &lt; 100 ms | ⏳ needs realtime probe ([#22](https://github.com/JakenHerman/RFWhisper/issues/22), [#15](https://github.com/JakenHerman/RFWhisper/issues/15)) |
+| A5 | Real-time factor | &lt; 0.5 on reference CPU | ✅ **implemented + passing** ([#23](https://github.com/JakenHerman/RFWhisper/issues/23)) |
+| A6 | No-op sanity (clean → clean) | PESQ drop ≤ 0.3, STOI ≤ 0.02 | ⏳ in progress ([#24](https://github.com/JakenHerman/RFWhisper/issues/24)) |
+| A7 | Cross-platform build | green on Linux / macOS / Windows | ✅ CI matrix (ubuntu-22.04, macos-13, windows-2022) |
+| A8 | Virtual-cable routing docs | beginner routes in ≤ 10 min | ⏳ docs ([#4](https://github.com/JakenHerman/RFWhisper/issues/4)) |
+
+## How the gates run
+
+Acceptance gates are `#[ignore]`-marked tests named `gate_*`. They measure the
+**real** DeepFilterNet3 backend, so they run with the `dfn` feature:
+
+```bash
+cargo test --release --features dfn -- --ignored gate_
+```
+
+Each writes a JSON report under `build/audio-reports/`. Without `--features dfn`,
+a gate skips with a reason rather than passing on the stub (whose numbers are not
+meaningful).
+
+## A5 — Real-time factor ✅
+
+The one gate you can run today. It confirms the denoiser uses well under half of
+real time, leaving CPU for WSJT-X, fldigi, and logging on the same box.
+
+```bash
+cargo test --release --features dfn -- --ignored gate_rtf
+```
+
+On a modern laptop CPU, DeepFilterNet3 measures:
+
+```json
+{
+  "gate": "rtf",
+  "model": "deepfilternet3",
+  "backend": "tract (CPU)",
+  "rtf": 0.0165,
+  "realtime_factor_x": 60.6,
+  "threshold": 0.5,
+  "pass": true
+}
+```
+
+**RTF 0.0165 — about 60× faster than real time.** A5 passes with large headroom.
+Per-block processing latency is p99 ≈ 0.5 ms, far inside the 10 ms hop budget.
+
+## A1 — why it needs real speech 🔬
+
+A1 measures effective SNR gain against a clean reference. The natural instinct is
+to run it on a `samples synth` mix — but **DeepFilterNet3 is a speech model**, and
+it correctly removes the synthetic tone-stack signal as non-speech. On a synthetic
+fixture its measured gain is *negative*; on real speech it is positive.
+
+So A1 has to run on real speech-plus-noise pairs, not synthetic fixtures. That work
+is tracked in [#20](https://github.com/JakenHerman/RFWhisper/issues/20) and depends
+on real sample contributions ([#47](https://github.com/JakenHerman/RFWhisper/issues/47) —
+see [`samples/README.md`](https://github.com/JakenHerman/RFWhisper/tree/master/samples)).
+The synthetic fixtures remain correct for the stub and for pipeline/latency/RTF
+wiring — they just can't judge a neural speech model.
+
+## A7 — cross-platform build ✅
+
+Every push and PR builds and unit-tests on the CI matrix (ubuntu-22.04, macos-13,
+windows-2022). The nightly `audio-quality` job additionally runs the acceptance
+gates with `--features dfn`.
 
 ## When a gate fails
 
-Gates are precious. **Do not disable one to get CI green.** Options in priority order:
+Gates are precious. **Do not disable one to get CI green.** In priority order:
 
-1. Fix the change — this is almost always the right answer.
-2. If the gate is genuinely wrong (false alarm, flaky fixture), open a separate PR fixing the gate with a paragraph of justification.
-3. Escalate to a [Ham Domain Expert reviewer](https://github.com/jakenherman/rfwhisper/blob/main/AGENTS.md#6-ham-domain-expert-subject-matter-reviewer) if the tradeoff is genuinely in tension.
+1. Fix the change — almost always the right answer.
+2. If the gate is genuinely wrong (false alarm, flaky fixture), open a separate PR
+   fixing the gate with a written justification.
+3. Escalate if the trade-off is genuinely in tension.
 
 <span className="rfw-73">73</span>
