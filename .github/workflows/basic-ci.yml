@@ -63,7 +63,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13, windows-2022]
+        os: [ubuntu-22.04, macos-14, windows-2022]
     steps:
       - uses: actions/checkout@v4
 
@@ -106,7 +106,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13]
+        os: [ubuntu-22.04, macos-14]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -135,7 +135,7 @@ jobs:
       # on-demand lane — never the fast PR path (#91). The DFN3 model is bundled
       # in the crate, so no extra weights fetch is needed for the happy path.
       - name: Run acceptance gates (real backend)
-        run: cargo test --release --features dfn -- --ignored gate_ || echo "No gates implemented yet (pre-v0.1)."
+        run: cargo test --release --features dfn -- --ignored gate_
 
       - name: Upload before/after artifacts + reports
         if: always()
@@ -147,6 +147,41 @@ jobs:
             build/spectrograms/**
             build/latency/**
           if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Real backend: build + test with the DeepFilterNet3 `dfn` feature so the
+  # backend users actually run cannot rot behind the lean default build (#117).
+  # ---------------------------------------------------------------------------
+  dfn:
+    name: DeepFilterNet3 backend (dfn feature)
+    needs: lint
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Install ALSA headers (cpal build dep on Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libasound2-dev
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: dfn
+
+      - name: clippy (dfn, deny warnings)
+        run: cargo clippy --release --features dfn --all-targets -- -D warnings
+
+      - name: Tests (dfn)
+        run: cargo test --release --features dfn --all-targets
+
+      - name: RTF gate (A5, real backend)
+        run: cargo test --release --features dfn --test gate_rtf -- --ignored
 
   # ---------------------------------------------------------------------------
   # Packaging smoke: confirm a release binary still builds.
@@ -183,7 +218,7 @@ jobs:
   # ---------------------------------------------------------------------------
   required:
     name: Required checks
-    needs: [lint, unit, package]
+    needs: [lint, unit, dfn, package]
     if: always()
     runs-on: ubuntu-22.04
     steps:
@@ -191,6 +226,7 @@ jobs:
         run: |
           if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.unit.result }}" != "success" ] || \
+             [ "${{ needs.dfn.result }}" != "success" ] || \
              [ "${{ needs.package.result }}" != "success" ]; then
             echo "One or more required jobs failed. Blocking merge."
             exit 1
