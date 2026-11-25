@@ -50,7 +50,7 @@ jobs:
         run: cargo fmt --check
 
       - name: clippy (deny warnings)
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --no-default-features --all-targets -- -D warnings
 
   # ---------------------------------------------------------------------------
   # Unit tests across a cross-platform matrix. Criterion A7 (v0.1).
@@ -79,7 +79,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Unit + integration tests
-        run: cargo test --all-targets
+        run: cargo test --no-default-features --all-targets
 
   # ---------------------------------------------------------------------------
   # Audio quality acceptance gates. These map 1:1 to ROADMAP.md criteria.
@@ -149,8 +149,8 @@ jobs:
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
-  # Real backend: build + test with the DeepFilterNet3 `dfn` feature so the
-  # backend users actually run cannot rot behind the lean default build (#117).
+  # Real backend: the default (`dfn`) build users actually run. The lint and
+  # unit lanes above use `--no-default-features` to stay fast (#91, #117).
   # ---------------------------------------------------------------------------
   dfn:
     name: DeepFilterNet3 backend (dfn feature)

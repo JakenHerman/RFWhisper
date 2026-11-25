@@ -185,8 +185,8 @@ pub fn select_engine(model: &str) -> Result<Box<dyn DenoiseEngine>, EngineError>
         {
             eprintln!(
                 "warning: deepfilternet3 requested but this binary was built without the \
-                 `dfn` feature; using SpectralStubEngine (CI / no-model path). Rebuild with \
-                 `cargo build --features dfn` for the real backend."
+                 `dfn` feature (--no-default-features); using SpectralStubEngine, which is \
+                 NOT a real denoiser. Rebuild with `cargo build --release` for DeepFilterNet3."
             );
             return Ok(Box::new(SpectralStubEngine::new()));
         }
