@@ -122,8 +122,9 @@ impl SignalKind {
 
 #[derive(Args)]
 struct SynthArgs {
-    #[arg(long, value_enum)]
-    kind: SignalKind,
+    /// What to generate. Optional with --preset (which implies `mix`).
+    #[arg(long, value_enum, required_unless_present = "preset")]
+    kind: Option<SignalKind>,
     #[arg(long, short)]
     out: PathBuf,
     #[arg(long, default_value_t = 5.0)]
@@ -178,7 +179,8 @@ fn cmd_samples_synth(args: SynthArgs) -> Result<(), String> {
         None => None,
     };
 
-    if resolved.is_some() || args.kind == SignalKind::Mix {
+    let kind = args.kind.unwrap_or(SignalKind::Mix);
+    if resolved.is_some() || kind == SignalKind::Mix {
         let (sig, noise, snr) = match resolved {
             Some(p) => (p.signal, p.noise, p.snr_db),
             None => (
@@ -219,12 +221,12 @@ fn cmd_samples_synth(args: SynthArgs) -> Result<(), String> {
         return Ok(());
     }
 
-    let signal = if let Some(sig) = args.kind.as_signal() {
+    let signal = if let Some(sig) = kind.as_signal() {
         sig.render(args.sr, args.seconds, args.seed)
-    } else if let Some(noise) = args.kind.as_noise() {
+    } else if let Some(noise) = kind.as_noise() {
         noise.render(args.sr, args.seconds, args.seed)
     } else {
-        return Err(format!("{:?} cannot be generated on its own", args.kind));
+        return Err(format!("{kind:?} cannot be generated on its own"));
     }
     .map_err(|e| e.to_string())?;
 
@@ -232,7 +234,7 @@ fn cmd_samples_synth(args: SynthArgs) -> Result<(), String> {
     println!(
         "wrote {} ({:?}, {:.1}s @ {} Hz, seed {})",
         args.out.display(),
-        args.kind,
+        kind,
         args.seconds,
         args.sr,
         args.seed
@@ -245,6 +247,7 @@ struct DenoiseArgs {
     input: PathBuf,
     #[arg(long, short)]
     output: PathBuf,
+    /// deepfilternet3 (voice) | passthrough (no processing) | spectral_stub.
     #[arg(long, short, default_value = "deepfilternet3")]
     model: String,
     /// Clean reference WAV; when given, the report includes snr_gain_db (A1).
@@ -260,16 +263,39 @@ struct DenoiseArgs {
 
 #[derive(Args)]
 struct DenoiseLiveArgs {
-    /// Input device index (default input device when omitted).
+    /// Input device: index from `rfwhisper audio list`, or part of its name
+    /// (e.g. "USB Audio CODEC"). System default when omitted.
     #[arg(long = "in")]
-    in_dev: Option<usize>,
-    /// Output device index (default output device when omitted).
+    in_dev: Option<String>,
+    /// Output device: index or part of its name (e.g. "CABLE Input",
+    /// "BlackHole"). System default when omitted.
     #[arg(long = "out")]
-    out_dev: Option<usize>,
+    out_dev: Option<String>,
+    /// deepfilternet3 (voice) | passthrough (no processing; digital modes) |
+    /// spectral_stub (classical test path).
     #[arg(long, short, default_value = "deepfilternet3")]
     model: String,
+    /// Processing block in input-rate samples.
     #[arg(long, default_value_t = DEFAULT_BLOCKSIZE)]
     blocksize: usize,
+    /// Input channel carrying receive audio (0 = left/first, 1 = right).
+    #[arg(long, default_value_t = 0)]
+    in_channel: usize,
+    /// Start with the denoiser bypassed (raw audio); toggle with b + Enter.
+    #[arg(long)]
+    bypass: bool,
+    /// Record the raw input to this WAV (48 kHz float, aligned with --record-denoised).
+    #[arg(long)]
+    record_raw: Option<PathBuf>,
+    /// Record the denoised audio to this WAV (48 kHz float, aligned with --record-raw).
+    #[arg(long)]
+    record_denoised: Option<PathBuf>,
+    /// Stop automatically after this many seconds.
+    #[arg(long)]
+    duration: Option<f64>,
+    /// No once-per-second telemetry line.
+    #[arg(long, short)]
+    quiet: bool,
 }
 
 #[derive(Subcommand)]
@@ -293,10 +319,12 @@ enum ModelsCommand {
 
 #[derive(Subcommand)]
 enum BenchCommand {
-    /// Latency probes (offline / processing budget).
+    /// Streaming latency probe on a WAV: per-block processing time (p50/p99)
+    /// plus the chain's algorithmic latency, through the same pipeline
+    /// `denoise-live` uses. Excludes sound-card buffers.
     Latency {
         path: PathBuf,
-        #[arg(long, default_value = "spectral_stub")]
+        #[arg(long, default_value = "deepfilternet3")]
         model: String,
         #[arg(long, default_value_t = 480)]
         block: usize,
@@ -304,7 +332,7 @@ enum BenchCommand {
     /// RTF (wall/audio) on a WAV file.
     Rtf {
         path: PathBuf,
-        #[arg(long, default_value = "spectral_stub")]
+        #[arg(long, default_value = "deepfilternet3")]
         model: String,
     },
 }
@@ -446,12 +474,18 @@ fn main() -> ExitCode {
     }
     let result: Result<i32, String> = match cli.command {
         Command::Denoise(_) => unreachable!("handled above"),
-        Command::DenoiseLive(args) => realtime::stream_denoise(
-            args.in_dev,
-            args.out_dev,
-            &resolve_model(&args.model),
-            args.blocksize,
-        )
+        Command::DenoiseLive(args) => realtime::stream_denoise(&realtime::LiveOptions {
+            input: args.in_dev,
+            output: args.out_dev,
+            model: resolve_model(&args.model),
+            blocksize: args.blocksize,
+            in_channel: args.in_channel,
+            bypass: args.bypass,
+            record_raw: args.record_raw,
+            record_denoised: args.record_denoised,
+            duration: args.duration,
+            quiet: args.quiet,
+        })
         .map(|()| 0)
         .map_err(|e| e.to_string()),
         Command::Audio {
@@ -478,15 +512,25 @@ fn main() -> ExitCode {
                 bench::measure_file_latency(&path, &model, block)
                     .map(|r| {
                         println!(
-                            "p50={:.2} ms p99={:.2} ms n={} (processing only)",
-                            r.p50_ms, r.p99_ms, r.n_chunks
+                            "model={} block={block} n={}\n\
+                             processing per block: p50={:.2} ms p99={:.2} ms max={:.2} ms\n\
+                             algorithmic latency (resample + model): {:.1} ms\n\
+                             block buffering: {:.1} ms\n\
+                             pipeline total (excl. sound-card buffers): ~{:.1} ms p99",
+                            r.engine,
+                            r.n_chunks,
+                            r.p50_ms,
+                            r.p99_ms,
+                            r.max_ms,
+                            r.algorithmic_ms,
+                            r.block_ms,
+                            r.algorithmic_ms + r.block_ms + r.p99_ms
                         );
-                        if r.p99_ms > 30.0 && model == "deepfilternet3" {
-                            println!(
-                                "Note: A4 is end-to-end < 100 ms p99; this is chunk \
-                                 processing only."
-                            );
-                        }
+                        println!(
+                            "A4 budget is < 100 ms p99 end to end; add your sound card's \
+                             input + output buffering (typically 10-40 ms) — \
+                             `rfwhisper denoise-live` prints the live estimate."
+                        );
                         0
                     })
                     .map_err(|e| e.to_string())

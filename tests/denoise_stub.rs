@@ -26,7 +26,7 @@ fn test_stub_attenuates_stationary_noise_interior() {
         .map(|_| 0.25 * rng.standard_normal() as f32)
         .collect();
 
-    let mut eng = SpectralStubEngine;
+    let mut eng = SpectralStubEngine::new();
     let out = eng.process(&noise, SR);
     assert_eq!(out.len(), noise.len());
     assert!(out.iter().all(|v| v.is_finite()));
@@ -58,7 +58,7 @@ fn test_stub_boundaries_do_not_overshoot() {
         })
         .collect();
 
-    let mut eng = SpectralStubEngine;
+    let mut eng = SpectralStubEngine::new();
     let out = eng.process(&noisy, SR);
 
     let edge = 512; // one stub FFT window at 48 kHz
@@ -97,7 +97,7 @@ fn test_stub_near_transparent_on_modulated_signal_interior() {
         .collect();
 
     let noisy32: Vec<f32> = noisy.iter().map(|v| *v as f32).collect();
-    let mut eng = SpectralStubEngine;
+    let mut eng = SpectralStubEngine::new();
     let denoised32 = eng.process(&noisy32, SR);
     assert_eq!(denoised32.len(), noisy32.len());
 
@@ -130,7 +130,7 @@ fn test_select_engine_names() {
 #[test]
 fn test_process_file_reports_stats() {
     let x = vec![0.1f32; SR as usize];
-    let mut eng = SpectralStubEngine;
+    let mut eng = SpectralStubEngine::new();
     let (y, stats) = eng.process_file(&x, SR);
     assert_eq!(y.len(), x.len());
     assert!((stats.seconds_audio - 1.0).abs() < 1e-9);

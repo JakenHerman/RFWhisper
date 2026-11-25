@@ -20,8 +20,10 @@ dfn = ["dep:deep_filter", "dep:ndarray"]
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 cpal = "0.15"
+ctrlc = { version = "3", features = ["termination"] }
 hound = "3.5"
 realfft = "3"
+rtrb = "0.3"
 serde_json = "1"
 sha2 = "0.10"
 thiserror = "2"

@@ -10,4 +10,7 @@ pub mod dfn;
 pub mod engine;
 pub mod spectral_stub;
 
-pub use engine::{select_engine, DenoiseEngine, EngineError, ProcessStats, SpectralStubEngine};
+pub use engine::{
+    select_engine, DenoiseEngine, EngineError, PassthroughEngine, ProcessStats, SpectralStubEngine,
+    MODEL_NAMES,
+};
