@@ -101,7 +101,7 @@ async function renderOne(pyPath) {
     `<!-- auto-generated ${nowStamp()} — do not edit -->\n\n` +
     (moduleDoc ? moduleDoc + '\n\n' : '') +
     (syms.length ? '## API\n\n' + syms.map(renderSymbol).join('\n') : '') +
-    `\n---\n\n[\`${path.relative(repoRoot(), pyPath)}\` on GitHub](https://github.com/jakenherman/rfwhisper/blob/main/${path.relative(repoRoot(), pyPath)})\n`;
+    `\n---\n\n[\`${path.relative(repoRoot(), pyPath)}\` on GitHub](https://github.com/jakenherman/rfwhisper/blob/master/${path.relative(repoRoot(), pyPath)})\n`;
 
   const outPath = path.join(OUT_DIR, `${title}.md`);
   await writeFile(outPath, body);

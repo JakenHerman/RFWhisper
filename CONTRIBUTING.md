@@ -69,18 +69,21 @@ If you want to do something big, file an issue or start a GitHub Discussion firs
 ```bash
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
-git lfs install    # required for samples/ and models/
+git lfs install    # only needed for the real-audio recordings in samples/
 
-# Debug build + all tests
+# Debug build + all tests (the default build includes the DeepFilterNet3
+# backend; the first build takes a few minutes)
 cargo build
 cargo test
 
+# Fast lane, as CI's lint/unit jobs run it (no neural backend)
+cargo test --no-default-features
+
 # Pre-commit hooks (mirror the CI fast lane: fmt, clippy, whitespace/yaml checks)
 pre-commit install    # get pre-commit via pipx/pip/brew if you don't have it
-
-# Pull pre-converted ONNX models
-cargo run -- models fetch
 ```
+
+No model download is needed: DeepFilterNet3 is bundled into the binary.
 
 ### Run the test suite
 
@@ -88,11 +91,12 @@ cargo run -- models fetch
 # Fast unit + integration tests
 cargo test
 
-# Lints (CI enforces both)
+# Lints (CI enforces both, in the lean and the default configuration)
 cargo fmt --check
-cargo clippy --all-targets -- -D warnings
+cargo clippy --no-default-features --all-targets -- -D warnings
+cargo clippy --release --all-targets -- -D warnings
 
-# Full acceptance harness (audio quality gates — slow; needs models + samples)
+# Full acceptance harness (audio quality gates — slow)
 cargo test --release -- --ignored gate_
 ```
 
@@ -180,8 +184,8 @@ RFWhisper is a **testable-success** project. Every feature is pinned to a criter
 
 | Tier | Command | When it runs |
 |---|---|---|
-| Unit + integration | `cargo test` | Every push + PR |
-| Lint / format | `cargo fmt --check && cargo clippy --all-targets -- -D warnings` | Every push + PR |
+| Unit + integration | `cargo test --no-default-features` (3-OS matrix) and `cargo test --release` (DeepFilterNet3 job) | Every push + PR |
+| Lint / format | `cargo fmt --check && cargo clippy --no-default-features --all-targets -- -D warnings` | Every push + PR |
 | Audio quality (slow) | `cargo test --release -- --ignored gate_` | Nightly + on-demand |
 | Latency probe | `rfwhisper bench latency <wav>` | Nightly on self-hosted runners (reference hardware) |
 | Integration (SDR) | Manual, documented in PR | When flowgraphs change |
@@ -201,7 +205,7 @@ If you break either, your PR will be blocked. These gates are why we exist.
 
 - Edition 2021; stable toolchain (MSRV pinned in `Cargo.toml`)
 - Formatter: `cargo fmt` (enforced in CI)
-- Linter: `cargo clippy --all-targets -- -D warnings`
+- Linter: `cargo clippy --all-targets -- -D warnings` (CI runs it with and without default features)
 - Errors: `Result` + `thiserror` in the library; no `unwrap()` in runtime paths (tests are fine)
 - No allocations or blocking in audio callbacks (see AGENTS.md § Real-Time Constraints)
 - Doc comments on public items; module docs explain the "why"

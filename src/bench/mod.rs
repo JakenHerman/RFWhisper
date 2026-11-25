@@ -1,7 +1,8 @@
 //! Benchmark helpers (A4/A5): processing latency percentiles and real-time factor.
 //!
-//! Processing latency here is file → file, not full audio-interface round trip.
-//! Full round-trip (A4) needs an impulse loop through hardware.
+//! Processing latency here runs the realtime pipeline on a file, not a full
+//! audio-interface round trip. Full round-trip (A4) needs an impulse loop
+//! through hardware.
 
 use std::path::Path;
 use std::time::Instant;
@@ -16,11 +17,19 @@ pub enum BenchError {
     Engine(#[from] EngineError),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct LatencyReport {
+    /// Engine that actually ran (after any fallback).
+    pub engine: &'static str,
+    /// Per-block processing time.
     pub p50_ms: f64,
     pub p99_ms: f64,
+    pub max_ms: f64,
     pub n_chunks: usize,
+    /// Resampler + model algorithmic latency (fixed, independent of CPU).
+    pub algorithmic_ms: f64,
+    /// Time to accumulate one block at the file's rate.
+    pub block_ms: f64,
 }
 
 /// Read a WAV file as mono f32 (first channel) plus its sample rate.
@@ -60,35 +69,60 @@ fn resolve_model(model: &str) -> &str {
     }
 }
 
-/// Chunked per-block processing latency on a WAV file (p50 / p99, ms).
+/// Streaming latency probe: feed the WAV through the same
+/// [`StreamPipeline`](crate::realtime::pipeline::StreamPipeline) that
+/// `denoise-live` uses, in `block`-sized chunks, timing each chunk.
+///
+/// The file is resampled to and from the model rate at its own rate, exactly as
+/// a sound card at that rate would be. Sound-card buffering is not included;
+/// that needs a hardware loopback (A4, #15).
 pub fn measure_file_latency(
     path: &Path,
     model: &str,
     block: usize,
 ) -> Result<LatencyReport, BenchError> {
     let (mono, sr) = read_wav_mono(path)?;
-    let mut eng = select_engine(resolve_model(model))?;
+    let block = block.max(1);
+    let eng = select_engine(resolve_model(model))?;
+    let mut pipe = crate::realtime::pipeline::StreamPipeline::new(eng, sr, sr);
+    let mut out = Vec::with_capacity(4 * block);
+    // Warm-up block, excluded (graph planning on the first inference).
+    if mono.len() >= block {
+        pipe.process(&mono[..block], &mut out);
+    }
     let mut times: Vec<f64> = Vec::new();
-    let mut i = 0;
+    let mut i = block;
     while i + block <= mono.len() {
+        out.clear();
         let t0 = Instant::now();
-        let _ = eng.process(&mono[i..i + block], sr);
+        pipe.process(&mono[i..i + block], &mut out);
         times.push(t0.elapsed().as_secs_f64() * 1000.0);
         i += block;
     }
+    let algorithmic_ms = pipe.latency_ms();
+    let block_ms = 1000.0 * block as f64 / sr as f64;
+    let engine = pipe.engine_name();
     if times.is_empty() {
         return Ok(LatencyReport {
+            engine,
             p50_ms: 0.0,
             p99_ms: 0.0,
+            max_ms: 0.0,
             n_chunks: 0,
+            algorithmic_ms,
+            block_ms,
         });
     }
     times.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let n = times.len();
     Ok(LatencyReport {
+        engine,
         p50_ms: times[n / 2],
-        p99_ms: times[(0.99 * (n - 1) as f64) as usize],
+        p99_ms: times[((0.99 * (n - 1) as f64).round() as usize).min(n - 1)],
+        max_ms: times[n - 1],
         n_chunks: n,
+        algorithmic_ms,
+        block_ms,
     })
 }
 

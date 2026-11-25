@@ -33,7 +33,7 @@ A good ham denoiser dataset has three components:
    - Birdies / narrow carriers
 3. **Room / rig impulse responses** — so the synthesis reflects a typical mic + shack chain.
 
-See [CONTRIBUTING.md § Submitting RF/Audio Samples](https://github.com/jakenherman/rfwhisper/blob/main/CONTRIBUTING.md#submitting-rfaudio-samples) for the metadata schema we use.
+See [CONTRIBUTING.md § Submitting RF/Audio Samples](https://github.com/jakenherman/rfwhisper/blob/master/CONTRIBUTING.md#submitting-rfaudio-samples) for the metadata schema we use.
 
 ## Synthesis
 

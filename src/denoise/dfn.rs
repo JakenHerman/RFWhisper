@@ -18,7 +18,7 @@
 
 // The `deep_filter` package's library is named `df` (see its Cargo.toml `[lib]`).
 use df::tract::{DfParams, DfTract, RuntimeParams};
-use ndarray::{Array2, ArrayView2};
+use ndarray::{ArrayView2, ArrayViewMut2};
 
 use crate::constants::NATIVE_DFN_SR_HZ;
 use crate::denoise::engine::{DenoiseEngine, EngineError};
@@ -33,6 +33,8 @@ pub struct DfnEngine {
     /// this much relative to the input; we flush and trim it so the returned signal
     /// stays sample-aligned. Matches upstream's `enhance_wav` example exactly.
     delay: usize,
+    /// Realtime input not yet consumed (always shorter than one hop between calls).
+    pending: Vec<f32>,
 }
 
 impl DfnEngine {
@@ -48,19 +50,24 @@ impl DfnEngine {
             .map_err(|e| EngineError::BackendInit(format!("DeepFilterNet3 init failed: {e}")))?;
         let hop = model.hop_size;
         let delay = (model.fft_size - model.hop_size) + model.lookahead * model.hop_size;
-        Ok(Self { model, hop, delay })
+        Ok(Self {
+            model,
+            hop,
+            delay,
+            pending: Vec::with_capacity(4 * hop),
+        })
     }
 
     /// Run one `hop`-sized frame through the model, writing enhanced samples.
     fn process_hop(&mut self, frame: &[f32], out: &mut [f32]) {
         let noisy: ArrayView2<f32> =
             ArrayView2::from_shape((1, self.hop), frame).expect("frame is one hop");
-        let mut enh: Array2<f32> = Array2::zeros((1, self.hop));
-        // A per-frame inference error should not abort the whole file; on failure
-        // pass the frame through unmodified so the output stays intelligible.
-        if self.model.process(noisy, enh.view_mut()).is_ok() {
-            out.copy_from_slice(enh.as_slice().expect("contiguous"));
-        } else {
+        let enh: ArrayViewMut2<f32> =
+            ArrayViewMut2::from_shape((1, self.hop), out).expect("out is one hop");
+        // A per-frame inference error should not abort the whole stream; on
+        // failure pass the frame through unmodified so the output stays
+        // intelligible.
+        if self.model.process(noisy, enh).is_err() {
             out.copy_from_slice(frame);
         }
     }
@@ -107,5 +114,30 @@ impl DenoiseEngine for DfnEngine {
         let up = to_native_rate(x, sr, native);
         let enhanced = self.process_native(&up);
         to_native_rate(&enhanced, native, sr)
+    }
+
+    /// Streaming: consume whole hops as they accumulate, no flush, no trim —
+    /// the model's GRU and STFT state carry across calls exactly as in
+    /// upstream's realtime reference.
+    fn process_stream(&mut self, x: &[f32], out: &mut Vec<f32>) {
+        self.pending.extend_from_slice(x);
+        let pending = std::mem::take(&mut self.pending);
+        let mut pos = 0;
+        while pending.len() - pos >= self.hop {
+            let start = out.len();
+            out.resize(start + self.hop, 0.0);
+            self.process_hop(&pending[pos..pos + self.hop], &mut out[start..]);
+            pos += self.hop;
+        }
+        self.pending = pending;
+        self.pending.drain(..pos);
+    }
+
+    fn stream_offset(&self) -> usize {
+        self.delay
+    }
+
+    fn name(&self) -> &'static str {
+        "deepfilternet3"
     }
 }

@@ -68,3 +68,93 @@ fn test_next_chunk_size() {
     assert_eq!(next_chunk_size(480, 44_100, 48_000), 441); // ceil(480 * 44100 / 48000)
     assert_eq!(next_chunk_size(160, 48_000, 16_000), 480);
 }
+
+// --- StreamResampler (realtime path, #14) ----------------------------------
+
+use rfwhisper::dsp::resample::StreamResampler;
+
+fn tone(freq: f64, sr: u32, n: usize) -> Vec<f32> {
+    (0..n)
+        .map(|i| (0.5 * (std::f64::consts::TAU * freq * i as f64 / sr as f64).sin()) as f32)
+        .collect()
+}
+
+/// Chunk boundaries must be invisible: any chunking gives bit-identical output.
+#[test]
+fn stream_resampler_is_chunking_invariant() {
+    for &(a, b) in &[
+        (48_000u32, 16_000u32),
+        (16_000, 48_000),
+        (44_100, 48_000),
+        (48_000, 44_100),
+    ] {
+        let x = tone(997.0, a, a as usize / 2);
+        let mut whole = Vec::new();
+        StreamResampler::new(a, b).process(&x, &mut whole);
+
+        let mut chunked = Vec::new();
+        let mut rs = StreamResampler::new(a, b);
+        let sizes = [1usize, 7, 480, 13, 512, 1024, 3];
+        let mut i = 0;
+        let mut k = 0;
+        while i < x.len() {
+            let n = sizes[k % sizes.len()].min(x.len() - i);
+            rs.process(&x[i..i + n], &mut chunked);
+            i += n;
+            k += 1;
+        }
+        assert_eq!(whole, chunked, "{a} -> {b}: chunked output differs");
+        let expected = (x.len() as f64 * b as f64 / a as f64).round() as i64;
+        assert!(
+            (whole.len() as i64 - expected).abs() <= 1,
+            "{a} -> {b}: got {} samples, expected ~{expected}",
+            whole.len()
+        );
+    }
+}
+
+/// Streaming output equals the offline polyphase result shifted by the group delay.
+#[test]
+fn stream_resampler_matches_offline_after_delay() {
+    for &(a, b) in &[(48_000u32, 16_000u32), (16_000, 48_000)] {
+        let x = tone(440.0, a, a as usize / 4);
+        let mut y = Vec::new();
+        let mut rs = StreamResampler::new(a, b);
+        rs.process(&x, &mut y);
+        let d = rs.delay_out();
+        assert_eq!(d.fract(), 0.0, "integer delay expected for {a} -> {b}");
+        let d = d as usize;
+        let x64: Vec<f64> = x.iter().map(|v| *v as f64).collect();
+        let off =
+            rfwhisper::dsp::resample::resample_poly(&x64, b as usize / 16_000, a as usize / 16_000);
+        // Compare away from both edges.
+        let margin = 200;
+        for k in margin..(y.len() - d - margin) {
+            let diff = (y[k + d] as f64 - off[k]).abs();
+            assert!(diff < 1e-4, "{a} -> {b}: sample {k} differs by {diff}");
+        }
+    }
+}
+
+/// A tone survives 44.1 kHz <-> 48 kHz at unity gain (the common laptop pair).
+#[test]
+fn stream_resampler_preserves_tone_amplitude() {
+    let x = tone(1000.0, 44_100, 44_100);
+    let mut y = Vec::new();
+    StreamResampler::new(44_100, 48_000).process(&x, &mut y);
+    let rms =
+        |v: &[f32]| (v.iter().map(|s| (*s as f64).powi(2)).sum::<f64>() / v.len() as f64).sqrt();
+    let ratio_db = 20.0 * (rms(&y[2000..y.len() - 2000]) / rms(&x[2000..x.len() - 2000])).log10();
+    assert!(ratio_db.abs() < 0.05, "gain error {ratio_db:.3} dB");
+}
+
+#[test]
+fn stream_resampler_equal_rates_is_identity() {
+    let x = tone(300.0, 48_000, 1000);
+    let mut rs = StreamResampler::new(48_000, 48_000);
+    assert!(rs.is_identity());
+    assert_eq!(rs.delay_out(), 0.0);
+    let mut y = Vec::new();
+    rs.process(&x, &mut y);
+    assert_eq!(x, y);
+}

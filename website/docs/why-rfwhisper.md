@@ -47,7 +47,7 @@ Three things RFWhisper will never do, full stop:
 
 ## Testable value: four concrete examples
 
-These live in [`tests/audio/`](https://github.com/jakenherman/rfwhisper/tree/main/tests/audio) and run in CI. See [ROADMAP.md § Acceptance Criteria](./roadmap) for the full list.
+These live in [`tests/audio/`](https://github.com/jakenherman/rfwhisper/tree/master/tests/audio) and run in CI. See [ROADMAP.md § Acceptance Criteria](./roadmap) for the full list.
 
 | # | Demo | Pass criterion |
 |---|---|---|

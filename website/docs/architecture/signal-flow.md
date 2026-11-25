@@ -7,6 +7,16 @@ description: Block-by-block walkthrough of the RFWhisper DSP + inference pipelin
 
 # Signal Flow
 
+:::info As built in v0.1.0-beta.1
+This page describes the target architecture. In the beta: capture and playback
+use **cpal** (WASAPI / CoreAudio / ALSA) with lock-free SPSC rings and no
+allocation in the callbacks; the worker runs a stateful polyphase resampler →
+**DeepFilterNet3 via upstream's Rust `deep_filter` crate on `tract` (CPU)** →
+A/B mix → resampler. Not yet built: ONNX Runtime inference and execution
+providers for the shipped model, de-emphasis, the adaptive notch, gain match /
+limiter, mode profiles, realtime thread priority, and the GNU Radio leg.
+:::
+
 Everything RFWhisper does, in order, from antenna (or rig audio) to your decoder.
 
 ```mermaid
@@ -65,7 +75,7 @@ All preallocated. Zero allocation in the per-frame critical path.
 
 - Execution provider chosen by rank: `CoreML → DirectML → CUDA → XNNPACK → CPU`. Override with `RFWHISPER_PROVIDER=...`.
 - I/O tensors allocated once; bound via ONNX Runtime's IO binding API.
-- `intra_op_num_threads` tuned per-target (see [Performance / Embedded](../../AGENTS.md) if you're reading in the repo).
+- `intra_op_num_threads` tuned per-target (see [Performance / Embedded](https://github.com/JakenHerman/RFWhisper/blob/master/AGENTS.md) if you're reading in the repo).
 - Inference runs on a dedicated worker thread, never in the audio callback.
 
 ### 5. Post-DSP

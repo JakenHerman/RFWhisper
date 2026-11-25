@@ -120,3 +120,48 @@ fn test_denoise_missing_input_exits_2() {
         .unwrap();
     assert_eq!(status.code(), Some(2));
 }
+
+/// `--model passthrough` is the "do nothing" choice for digital modes: the
+/// output must be the input, sample for sample.
+#[test]
+fn test_denoise_passthrough_is_identity() {
+    let input = scratch("pt_in.wav");
+    let output = scratch("pt_out.wav");
+    write_wav(&input, 1, 48_000, 0.5);
+    let status = bin()
+        .args(["denoise", "-i"])
+        .arg(&input)
+        .arg("-o")
+        .arg(&output)
+        .args(["--model", "passthrough"])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let read = |p: &PathBuf| rfwhisper::bench::read_wav_mono(p).unwrap().0;
+    let (x, y) = (read(&input), read(&output));
+    assert_eq!(x.len(), y.len());
+    for (a, b) in x.iter().zip(&y) {
+        assert!((a - b).abs() < 1e-6);
+    }
+}
+
+/// `samples synth --preset` implies `--kind mix`; it must not demand `--kind`.
+#[test]
+fn test_synth_preset_without_kind() {
+    let out = scratch("preset.wav");
+    let status = bin()
+        .args([
+            "samples",
+            "synth",
+            "--preset",
+            "ssb_powerline_s3_s7",
+            "--seconds",
+            "0.5",
+            "--out",
+        ])
+        .arg(&out)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert!(out.exists());
+}

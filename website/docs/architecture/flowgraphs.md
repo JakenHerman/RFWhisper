@@ -9,7 +9,7 @@ import FlowgraphRenderer from '@site/src/components/FlowgraphRenderer';
 
 # GNU Radio Flowgraphs
 
-Starting in v0.2 RFWhisper ships a curated set of GNU Radio 3.10 flowgraphs — one per commonly used SDR. Each `.grc` file lives under [`flowgraphs/`](https://github.com/jakenherman/rfwhisper/tree/main/flowgraphs); the diagrams below are **auto-generated** from the `.grc` at build time by [`scripts/grc-to-mermaid.mjs`](https://github.com/jakenherman/rfwhisper/tree/main/website/scripts/grc-to-mermaid.mjs) so they never drift from the canonical flowgraph.
+Starting in v0.2 RFWhisper ships a curated set of GNU Radio 3.10 flowgraphs — one per commonly used SDR. Each `.grc` file lives under [`flowgraphs/`](https://github.com/jakenherman/rfwhisper/tree/master/flowgraphs); the diagrams below are **auto-generated** from the `.grc` at build time by [`scripts/grc-to-mermaid.mjs`](https://github.com/jakenherman/rfwhisper/tree/master/website/scripts/grc-to-mermaid.mjs) so they never drift from the canonical flowgraph.
 
 :::info Live-extracted content
 

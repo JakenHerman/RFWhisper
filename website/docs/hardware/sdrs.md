@@ -61,7 +61,7 @@ Status legend:
 
 1. Run the nearest matching flowgraph.
 2. Open an Issue with the `hardware-report` label.
-3. Include: make/model/firmware, sample rates tested, a 30 s before/after recording, and `rfwhisper doctor` output.
+3. Include: make/model/firmware, sample rates tested, a 30 s before/after recording (`--record-raw` / `--record-denoised`), and the output of `rfwhisper --version` and `rfwhisper audio list`.
 
 We'll update the matrix and credit you.
 

@@ -46,6 +46,14 @@ RPi Zero 2 W ships with RNNoise (not DFN3) and has a separate, looser budget.
 
 # v0.1 — Audio-Only Denoiser → Virtual Cable
 
+> **Status (2026-11-25): beta — `v0.1.0-beta.1`.** Real-time DeepFilterNet3
+> (`denoise-live`, A/B bypass, before/after recording, telemetry) ships.
+> A5 ✅ (RTF ≈ 0.02) · A7 ✅ (CI matrix) · A4 🟡 (pipeline ≈ 40 ms, live
+> estimate ≈ 75 ms; hardware loopback pending) · A8 🟡 (guide written, timed
+> walkthrough pending) · A1 / A2 / A3 / A6 ⏳ need real on-air recordings. The
+> stock speech model removes CW / digital-mode tones, so those modes use
+> `--model passthrough` until the v0.3 profiles. See [CHANGELOG.md](https://github.com/JakenHerman/RFWhisper/blob/master/CHANGELOG.md).
+
 **Theme:** Prove the core value proposition with the smallest possible surface area. One executable, one model, one virtual cable, demonstrably better copy.
 
 ## Scope

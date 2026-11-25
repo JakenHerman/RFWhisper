@@ -182,3 +182,121 @@ pub fn resample_48k_to_16k(x: &[f64]) -> Vec<f64> {
 pub fn resample_16k_to_48k(x: &[f64]) -> Vec<f64> {
     resample_poly(x, 3, 1)
 }
+
+/// Stateful polyphase resampler for the realtime path.
+///
+/// [`to_native_rate`] is stateless: calling it on consecutive 10 ms chunks
+/// restarts the filter every call, so each chunk boundary gets a zero-padded
+/// edge and the output clicks at 100 Hz. `StreamResampler` keeps the last
+/// `taps_per_phase - 1` input samples between calls, so feeding a signal in any
+/// chunking produces bit-identical output to feeding it in one call.
+///
+/// Same filter design as [`resample_poly`] (Kaiser β=5.0, `half_len = 10 *
+/// max(up, down)`), split into `up` polyphase branches. Unlike the offline
+/// path it is causal: output lags input by [`StreamResampler::delay_out`]
+/// samples (≈ 10 samples, well under 1 ms, at every supported rate pair).
+///
+/// Allocation-free in steady state once its internal buffer has grown to
+/// `chunk + taps_per_phase` samples; `out` must be reused by the caller.
+pub struct StreamResampler {
+    up: usize,
+    down: usize,
+    /// `phases[p][j] = h[p + j * up]`.
+    phases: Vec<Vec<f32>>,
+    taps_per_phase: usize,
+    /// Input history: `buf[0]` is absolute input sample `n_in - buf.len()`.
+    buf: Vec<f32>,
+    /// Total input samples consumed so far.
+    n_in: u64,
+    /// Upsampled-domain index of the next output sample (`m * down`).
+    t: u64,
+    half_len: usize,
+}
+
+impl StreamResampler {
+    /// Resampler from `sr_in` to `sr_out`. Equal rates make it a zero-delay copy.
+    pub fn new(sr_in: u32, sr_out: u32) -> Self {
+        assert!(sr_in > 0 && sr_out > 0, "sample rates must be positive");
+        let g = gcd(sr_in as usize, sr_out as usize);
+        let up = sr_out as usize / g;
+        let down = sr_in as usize / g;
+        if up == down {
+            return Self {
+                up: 1,
+                down: 1,
+                phases: Vec::new(),
+                taps_per_phase: 0,
+                buf: Vec::new(),
+                n_in: 0,
+                t: 0,
+                half_len: 0,
+            };
+        }
+        let max_rate = up.max(down);
+        let half_len = 10 * max_rate;
+        let h = firwin_kaiser(2 * half_len + 1, 1.0 / max_rate as f64, 5.0);
+        let taps_per_phase = h.len().div_ceil(up);
+        let phases = (0..up)
+            .map(|p| {
+                (0..taps_per_phase)
+                    .map(|j| h.get(p + j * up).map_or(0.0, |v| (v * up as f64) as f32))
+                    .collect()
+            })
+            .collect();
+        Self {
+            up,
+            down,
+            phases,
+            taps_per_phase,
+            buf: Vec::new(),
+            n_in: 0,
+            t: 0,
+            half_len,
+        }
+    }
+
+    /// True when input and output rates are equal (no filtering, no delay).
+    pub fn is_identity(&self) -> bool {
+        self.up == self.down
+    }
+
+    /// Group delay in *output* samples (the filter is linear-phase, so every
+    /// frequency is delayed by the same amount).
+    pub fn delay_out(&self) -> f64 {
+        self.half_len as f64 / self.down as f64
+    }
+
+    /// Resample `x` and append the result to `out`. Stateful across calls.
+    pub fn process(&mut self, x: &[f32], out: &mut Vec<f32>) {
+        if self.is_identity() {
+            out.extend_from_slice(x);
+            return;
+        }
+        self.buf.extend_from_slice(x);
+        self.n_in += x.len() as u64;
+        let base = self.n_in - self.buf.len() as u64;
+        let (up, down) = (self.up as u64, self.down as u64);
+        loop {
+            let n = self.t / up; // newest input sample this output needs
+            if n >= self.n_in {
+                break;
+            }
+            let h = &self.phases[(self.t % up) as usize];
+            let local_n = (n - base) as usize;
+            let jmax = (local_n + 1).min(self.taps_per_phase);
+            let mut acc = 0.0f32;
+            for (j, tap) in h.iter().enumerate().take(jmax) {
+                acc += tap * self.buf[local_n - j];
+            }
+            out.push(acc);
+            self.t += down;
+        }
+        // Keep only the history the next output still needs.
+        let next_n = self.t / up;
+        let keep_from = next_n
+            .saturating_sub(self.taps_per_phase as u64 - 1)
+            .max(base);
+        let drop = ((keep_from - base) as usize).min(self.buf.len());
+        self.buf.drain(..drop);
+    }
+}

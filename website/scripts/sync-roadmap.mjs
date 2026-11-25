@@ -47,16 +47,16 @@ async function main() {
   md = rewriteRepoLinks(md, {
     'README.md': '/docs/next/',
     'CONTRIBUTING.md': '/docs/next/contributing',
-    'AGENTS.md': 'https://github.com/jakenherman/rfwhisper/blob/main/AGENTS.md',
-    'LICENSE': 'https://github.com/jakenherman/rfwhisper/blob/main/LICENSE',
+    'AGENTS.md': 'https://github.com/jakenherman/rfwhisper/blob/master/AGENTS.md',
+    'LICENSE': 'https://github.com/jakenherman/rfwhisper/blob/master/LICENSE',
     '.github/workflows/basic-ci.yml':
-      'https://github.com/jakenherman/rfwhisper/blob/main/.github/workflows/basic-ci.yml',
+      'https://github.com/jakenherman/rfwhisper/blob/master/.github/workflows/basic-ci.yml',
   });
   md = escapeMdx(md);
 
   const banner =
     `<!--\n  Auto-generated from ROADMAP.md at ${nowStamp()}.\n  Do not edit — run 'npm run sync:roadmap'.\n-->\n\n` +
-    `:::note Synced from \`ROADMAP.md\`\nLast update: ${nowStamp()} · source of truth: [\`ROADMAP.md\`](https://github.com/jakenherman/rfwhisper/blob/main/ROADMAP.md)\n:::\n\n`;
+    `:::note Synced from \`ROADMAP.md\`\nLast update: ${nowStamp()} · source of truth: [\`ROADMAP.md\`](https://github.com/jakenherman/rfwhisper/blob/master/ROADMAP.md)\n:::\n\n`;
 
   await writeFile(dst, banner + md);
   console.log(`[sync-roadmap] wrote ${path.relative(siteRoot(), dst)}`);

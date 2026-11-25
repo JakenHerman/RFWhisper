@@ -19,7 +19,8 @@ rfwhisper audio list
 # → "PR-40 USB Mic"           (not a rig; skip)
 
 # 2. Run denoise-live from rig CODEC → virtual cable
-rfwhisper denoise-live --in "USB Audio CODEC" --out "BlackHole 2ch" --profile ssb
+rfwhisper denoise-live --in "USB Audio CODEC" --out "BlackHole"
+#    (FT8 / CW in the beta: add --model passthrough)
 
 # 3. Point WSJT-X at the virtual cable
 ```
@@ -61,7 +62,7 @@ rfwhisper denoise-live --in "USB Audio CODEC" --out "BlackHole 2ch" --profile ss
 
 ## Rig control (Hamlib)
 
-v0.3 adds a Hamlib hook so RFWhisper can auto-select a profile based on your rig's current mode (SSB / CW / DATA-U / etc.). This is optional — manual `--profile` always wins.
+v0.3 adds a Hamlib hook so RFWhisper can auto-select a profile based on your rig's current mode (SSB / CW / DATA-U / etc.). This is optional; a manual `--profile` flag (also v0.3) will always win.
 
 ## Common gotchas
 

@@ -18,7 +18,7 @@
      Then state the expected outcome, e.g.:
 
        cargo run --release -- denoise -i noisy.wav -o out.wav \
-         --model spectral_stub --reference clean.wav
+         --model deepfilternet3 --reference clean.wav
        # PASS if: exit 0, report snr_gain_db is a number, out.wav opens in Audacity
 -->
 

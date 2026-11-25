@@ -1,6 +1,6 @@
 [package]
 name = "rfwhisper"
-version = "0.1.0-alpha.1"
+version = "0.1.0-beta.1"
 edition = "2021"
 description = "Real-time AI denoising for ham radio (local-first, GPLv3+)"
 license = "GPL-3.0-or-later"
@@ -9,19 +9,23 @@ homepage = "https://rfwhisper.org"
 rust-version = "1.75"
 
 [features]
-# The real DeepFilterNet3 backend (#10). Off by default: it pulls the pure-Rust
-# tract inference tree (tract-core/onnx/pulse/hir) plus the bundled model, which
-# roughly triples build time and binary size. The minimal build stays lean (#91)
-# and CI keeps using the spectral stub; enable with `--features dfn` for a real
-# denoiser. `select_engine("deepfilternet3")` falls back to the stub when off.
-default = []
+# The real DeepFilterNet3 backend (#10). On by default since the beta: the
+# default build is the full user-facing build (#91), and a plain
+# `cargo build --release` must give hams a real denoiser, not the stub.
+# It pulls the pure-Rust tract inference tree plus the bundled model, roughly
+# tripling build time and binary size, so CI's fast lanes and embedders use
+# `--no-default-features` (NullModel / stub only).
+# `select_engine("deepfilternet3")` falls back to the stub when off.
+default = ["dfn"]
 dfn = ["dep:deep_filter", "dep:ndarray"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 cpal = "0.15"
+ctrlc = { version = "3", features = ["termination"] }
 hound = "3.5"
 realfft = "3"
+rtrb = "0.3"
 serde_json = "1"
 sha2 = "0.10"
 thiserror = "2"

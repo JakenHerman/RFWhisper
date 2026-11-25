@@ -7,6 +7,13 @@ description: EME, 630m, microwave, and other environments where every dB counts.
 
 # Weak-Signal Work
 
+:::caution Beta: voice only for now
+The beta runs the stock DeepFilterNet3 *speech* model. It is good on SSB, AM, and
+FM voice, but it removes CW tones and FT8/FT4/RTTY/PSK carriers along with the
+noise. Use `--model passthrough` for those modes until the v0.3 mode profiles
+ship. Commands marked *(v0.3)* or *(planned)* below don't exist yet.
+:::
+
 EME, 630m, 2200m, 6m sporadic E, microwave — the modes where you live 3 dB above the noise floor and every photon matters. RFWhisper isn't a miracle, but a ham-tuned DNN that doesn't damage signal structure is a meaningful addition to a weak-signal operator's toolkit.
 
 ## Why weak-signal benefits most
@@ -42,8 +49,10 @@ RFWhisper's hard gates (CW transient, FT8 decode counts) exist specifically beca
 Noise is different here — seasonal atmospheric QRN dominates, not man-made QRM. A CW-tuned profile with aggressive crash reduction helps a lot without harming keying transients.
 
 ```bash
-rfwhisper denoise-live --model deepfilternet3 --profile cw \
-  --telemetry ./630m-session.jsonl
+# Planned (v0.3): a CW profile with crash reduction that leaves keying alone.
+# In the beta, keep CW on the raw path and record for later comparison:
+rfwhisper denoise-live --model passthrough \
+  --record-raw 630m-raw.wav 2> 630m-session.log
 ```
 
 ## Microwave / SHF
@@ -61,7 +70,7 @@ At microwave frequencies you're typically working narrow modes (CW, SSB, JT4, JT
 - **630m winter** recordings of the seasonal atmospheric QRN — this is hard to synthesize and invaluable for training.
 - **WSPR long-term spots** before/after with sequential WSPRnet logs.
 
-See [CONTRIBUTING.md § Submitting RF/Audio Samples](https://github.com/jakenherman/rfwhisper/blob/main/CONTRIBUTING.md#submitting-rfaudio-samples).
+See [CONTRIBUTING.md § Submitting RF/Audio Samples](https://github.com/jakenherman/rfwhisper/blob/master/CONTRIBUTING.md#submitting-rfaudio-samples).
 
 ## The operator's honest take
 

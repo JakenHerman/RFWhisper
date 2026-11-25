@@ -2,12 +2,12 @@
 id: windows
 title: Windows
 sidebar_position: 4
-description: Install RFWhisper on Windows 10/11 with VB-Cable and DirectML acceleration.
+description: Install RFWhisper on Windows 10/11 with VB-Cable.
 ---
 
 # Install on Windows
 
-Tested on Windows 10 22H2 and Windows 11.
+Built and unit-tested in CI on Windows Server 2022 (the Windows 10/11 code base). Live use on Windows has not been verified for the beta yet; reports welcome.
 
 ## 1. Install Rust
 
@@ -20,9 +20,9 @@ cargo --version
 # cargo 1.7x.x
 ```
 
-## 2. Install Git + Git LFS
+## 2. Install Git
 
-<https://git-scm.com/download/win> and <https://git-lfs.github.com/>.
+<https://git-scm.com/download/win>.
 
 ## 3. Install VB-Cable (virtual audio cable)
 
@@ -41,37 +41,39 @@ The official [GNU Radio Windows installer](https://www.gnuradio.org/download/) (
 ```powershell
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
-cargo build --release
-.\target\release\rfwhisper.exe models fetch
-.\target\release\rfwhisper.exe doctor
+cargo build --release        # a few minutes the first time: builds DeepFilterNet3 in
+.\target\release\rfwhisper.exe --version
+.\target\release\rfwhisper.exe audio list
 ```
 
-Copy `target\release\rfwhisper.exe` anywhere on your `PATH` — it's a single self-contained binary.
+Copy `target\release\rfwhisper.exe` anywhere on your `PATH`. It's a single
+self-contained binary with the DeepFilterNet3 model inside: nothing to download,
+no network at runtime.
 
-## 6. DirectML acceleration (recommended)
+## 6. Performance
 
-When the ONNX (DFN3) backend is enabled, RFWhisper prefers **DirectML** on Windows automatically and falls back through CUDA → CPU:
-
-```powershell
-rfwhisper info providers
-# DmlExecutionProvider    (preferred)
-# CPUExecutionProvider    (fallback)
-```
+The beta runs DeepFilterNet3 on the CPU (no GPU or DirectML needed); any
+quad-core laptop from the last several years has ample headroom.
 
 ## 7. Routing audio
 
 | From | To | How |
 |---|---|---|
 | Rig USB CODEC (IC-7300, etc.) | RFWhisper input | Choose **USB Audio CODEC** in `rfwhisper audio list` |
-| RFWhisper output | WSJT-X / fldigi input | Choose **CABLE Input** as RFWhisper output, **CABLE Output** as WSJT-X input |
+| RFWhisper output | WSJT-X / fldigi input | `--out "CABLE Input"`; set **CABLE Output** as WSJT-X's input |
 | Also hear it yourself | Speakers | In Sound Settings, enable *Listen to this device* on **CABLE Output**, forward to Speakers |
 
-## 8. Realtime / MMCSS
+Example:
 
-RFWhisper automatically requests the "Pro Audio" MMCSS characteristic on the audio thread on Windows. No action needed.
+```powershell
+rfwhisper denoise-live --in "USB Audio CODEC" --out "CABLE Input"
+```
+
+Full walkthrough: [Virtual audio cables → Windows](../hardware/virtual-cables#windows--vb-cable).
 
 ## Troubleshooting
 
 - **`error: linker 'link.exe' not found`** — install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the "Desktop development with C++" workload (rustup offers this during install).
 - **VB-Cable audio crackling** — set VB-Cable's internal rate to **48000 Hz** in its control panel.
-- **No audio devices listed** — check that the app has microphone permission (Settings → Privacy & security → Microphone).
+- **No audio devices listed / silent input**: allow desktop apps to use the microphone (Settings → Privacy & security → Microphone → *Let desktop apps access your microphone*).
+- **`could not open … device`**: another app holds it in exclusive mode. Sound settings → device → Properties → Advanced → untick the two *exclusive mode* boxes.

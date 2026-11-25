@@ -127,7 +127,7 @@ rfwhisper denoise \
   --output    /tmp/out.wav \
   --reference mixed/ssb_powerline_s3_s7_01.clean.wav \
   --model     deepfilternet3 \
-  --spectrogram /tmp/report.html   # (build with --features dfn for the real model)
+  --spectrogram /tmp/report.html
 ```
 
 `report.html` is the shareable before/after ([#115](https://github.com/JakenHerman/RFWhisper/issues/115)).

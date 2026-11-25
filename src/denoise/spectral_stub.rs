@@ -124,3 +124,131 @@ pub fn wiener_like_denoise(x: &[f32], sr: u32) -> Vec<f32> {
     out.truncate(x.len());
     out
 }
+
+/// Streaming twin of [`wiener_like_denoise`] for the realtime path.
+///
+/// The offline stub estimates the noise floor from the 10th percentile of the
+/// *whole file*, which a live stream cannot see. This version tracks the floor
+/// per bin with a gated recursive average (bins far above the floor are treated
+/// as signal and only let it creep up at ~3 dB/s) and
+/// applies the same `P / (P + N)` mask with the same 0.15 floor.
+///
+/// Framing is WOLA with a periodic sqrt-Hann on both analysis and synthesis
+/// (n_fft 512, hop 256 at 48 kHz): the squared window sums to exactly 1.0 at 50 %
+/// overlap, so with the mask pinned at 1 the output reproduces the input
+/// (see `streaming_stub_identity_reconstructs`). Latency is `n_fft - hop`
+/// samples (5.3 ms at 48 kHz).
+/// A bin above `NOISE_GATE x` the current floor is treated as signal and
+/// does not update the noise estimate.
+const NOISE_GATE: f32 = 4.0;
+/// Per-hop smoothing of the noise estimate (time constant ~100 ms at 48 kHz).
+const NOISE_SMOOTH: f32 = 0.95;
+
+pub struct StreamingSpectral {
+    n_fft: usize,
+    hop: usize,
+    window: Vec<f32>,
+    mask_floor: f32,
+    pending: Vec<f32>,
+    ola: Vec<f32>,
+    noise: Vec<f32>,
+    frames: u64,
+    r2c: std::sync::Arc<dyn realfft::RealToComplex<f32>>,
+    c2r: std::sync::Arc<dyn realfft::ComplexToReal<f32>>,
+    time_buf: Vec<f32>,
+    spec_buf: Vec<Complex<f32>>,
+}
+
+impl StreamingSpectral {
+    /// Streaming stub at `sr` with the standard 0.15 mask floor.
+    pub fn new(sr: u32) -> Self {
+        Self::with_mask_floor(sr, 0.15)
+    }
+
+    /// Same, with an explicit mask floor (`1.0` = identity; used by tests to
+    /// prove the WOLA framing reconstructs perfectly).
+    pub fn with_mask_floor(sr: u32, mask_floor: f32) -> Self {
+        let n_fft = if sr >= 16_000 { 512 } else { 256 };
+        let hop = n_fft / 2;
+        let window = (0..n_fft)
+            .map(|i| {
+                (0.5 - 0.5 * (2.0 * std::f32::consts::PI * i as f32 / n_fft as f32).cos()).sqrt()
+            })
+            .collect();
+        let mut planner = RealFftPlanner::<f32>::new();
+        let r2c = planner.plan_fft_forward(n_fft);
+        let c2r = planner.plan_fft_inverse(n_fft);
+        let spec_buf = r2c.make_output_vec();
+        Self {
+            n_fft,
+            hop,
+            window,
+            mask_floor,
+            pending: Vec::with_capacity(4 * n_fft),
+            ola: vec![0.0; n_fft],
+            noise: vec![0.0; n_fft / 2 + 1],
+            frames: 0,
+            r2c,
+            c2r,
+            time_buf: vec![0.0; n_fft],
+            spec_buf,
+        }
+    }
+
+    /// Samples of latency between an input sample and its output.
+    pub fn latency(&self) -> usize {
+        self.n_fft - self.hop
+    }
+
+    /// Feed samples; enhanced samples are appended to `out` one hop at a time.
+    /// Output index `k` corresponds to input index `k`.
+    pub fn process(&mut self, x: &[f32], out: &mut Vec<f32>) {
+        self.pending.extend_from_slice(x);
+        let mut pos = 0;
+        // Per-hop power rise for the noise tracker: ~3 dB/s.
+        let rise = 2f32.powf(self.hop as f32 / 48_000.0);
+        let inv_n = 1.0 / self.n_fft as f32;
+        while self.pending.len() - pos >= self.n_fft {
+            for ((b, v), w) in self
+                .time_buf
+                .iter_mut()
+                .zip(&self.pending[pos..pos + self.n_fft])
+                .zip(&self.window)
+            {
+                *b = v * w;
+            }
+            self.r2c
+                .process(&mut self.time_buf, &mut self.spec_buf)
+                .expect("fft forward");
+            for (bin, v) in self.spec_buf.iter_mut().enumerate() {
+                let p = v.norm_sqr();
+                let n = &mut self.noise[bin];
+                if self.frames == 0 {
+                    *n = p;
+                } else if p < NOISE_GATE * *n {
+                    // Likely noise-only: track the mean noise power (~100 ms).
+                    *n = NOISE_SMOOTH * *n + (1.0 - NOISE_SMOOTH) * p;
+                } else {
+                    // Likely signal: let the floor creep up slowly in case the
+                    // noise itself got louder.
+                    *n *= rise;
+                }
+                let mask = p / (p + *n + 1e-12);
+                *v *= mask.clamp(self.mask_floor, 1.0);
+            }
+            self.frames += 1;
+            self.c2r
+                .process(&mut self.spec_buf, &mut self.time_buf)
+                .expect("fft inverse");
+            for ((o, t), w) in self.ola.iter_mut().zip(&self.time_buf).zip(&self.window) {
+                *o += t * inv_n * w;
+            }
+            out.extend_from_slice(&self.ola[..self.hop]);
+            self.ola.copy_within(self.hop.., 0);
+            let n = self.ola.len();
+            self.ola[n - self.hop..].fill(0.0);
+            pos += self.hop;
+        }
+        self.pending.drain(..pos);
+    }
+}

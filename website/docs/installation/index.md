@@ -12,38 +12,41 @@ RFWhisper runs on **Linux, macOS, Windows, and Raspberry Pi 5**. Pick your platf
 
 | Platform | Minimum | Recommended | Notes |
 |---|---|---|---|
-| [Linux](./linux) | Any x86_64/aarch64 from 2015+, ALSA or PipeWire | Ubuntu 22.04+ / Fedora 38+ | Best DX for hacking |
-| [macOS](./macos) | Intel or Apple Silicon, macOS 12+ | Apple Silicon M1+ | CoreML provider gives you a free perf boost |
-| [Windows](./windows) | Windows 10/11 x64 | Windows 11 with DirectML | VB-Cable required for virtual routing |
-| [Raspberry Pi](./raspberry-pi) | Pi 5 (4 GB) + active cooling | Pi 5 8 GB + NVMe HAT | RNNoise fallback for Pi 4 / Zero 2 W |
+| [Linux](./linux.md) | Any x86_64/aarch64 from 2015+, ALSA or PipeWire | Ubuntu 22.04+ / Fedora 38+ | Best DX for hacking |
+| [macOS](./macos.md) | Intel or Apple Silicon, macOS 12+ | Apple Silicon M1+ | Beta verified live on Apple Silicon |
+| [Windows](./windows.md) | Windows 10/11 x64 | Windows 11 | VB-Cable for virtual routing |
+| [Raspberry Pi](./raspberry-pi.md) | Pi 5 (4 GB) + active cooling | Pi 5 8 GB + NVMe HAT | Not yet verified in the beta |
 
 ## Shared prerequisites
 
 - **Rust** (stable toolchain via [rustup](https://rustup.rs/))
-- **Git** with `git-lfs` for samples/models
+- **Git** (plus `git-lfs` only if you want the real-audio sample recordings)
 - A working audio stack on your OS
 - (For v0.2+) GNU Radio 3.10.x with `gr-soapy` + `gr-dnn`
 
-## One-liner install (from source, alpha)
+## Install from source (beta)
 
 ```bash
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
 cargo build --release
-./target/release/rfwhisper models fetch
 ./target/release/rfwhisper --version
+./target/release/rfwhisper audio list
 ```
 
-The build produces a single self-contained binary at `target/release/rfwhisper` — copy it anywhere on your `PATH` (no interpreter or virtualenv needed).
+The build produces a single self-contained binary at `target/release/rfwhisper`,
+with the DeepFilterNet3 model inside. Copy it anywhere on your `PATH` (no
+interpreter, virtualenv, or model download needed).
 
-Then jump to [Quick Start](../quickstart/) to denoise your first file.
+Then jump to [Quick Start](../quickstart/index.md) to run it on your rig audio.
 
-:::tip Verifying the install
+:::tip What to paste into a bug report
 
 ```bash
-rfwhisper doctor
+rfwhisper --version
+rfwhisper audio list
 ```
 
-Runs a diagnostic checklist: build info, ONNX Runtime providers, audio backend, model SHA-256s, and platform-specific quirks. Paste the output into any bug report.
+plus your OS, CPU, and the last status line `denoise-live` printed.
 
 :::
