@@ -7,11 +7,18 @@ description: Using RFWhisper in CQ WW, ARRL Sweepstakes, RTTY Roundup, and gener
 
 # Contesting
 
+:::caution Beta: voice only for now
+The beta runs the stock DeepFilterNet3 *speech* model. It is good on SSB, AM, and
+FM voice, but it removes CW tones and FT8/FT4/RTTY/PSK carriers along with the
+noise. Use `--model passthrough` for those modes until the v0.3 mode profiles
+ship. Commands marked *(v0.3)* or *(planned)* below don't exist yet.
+:::
+
 Contest weekends are where QRM piles up fast: dozens of stations packed into a few kHz, overloaded front-ends, exchanges barely above the noise floor. RFWhisper is tuned to **preserve decode quality** under exactly this condition — never at the cost of busting a call.
 
 ## Hard requirements for contest use
 
-1. **Zero decode regressions.** If a raw pass decodes `K3XYZ` and the denoised pass decodes `KJXYZ`, that's a bug in the model. Run the [FT8 regression gate](../quickstart/v0_1-test-guide#a2--ft8-decode-non-regression) on your chosen model before the contest.
+1. **Zero decode regressions.** If a raw pass decodes `K3XYZ` and the denoised pass decodes `KJXYZ`, that's a bug in the model. Run the [FT8 regression gate](../quickstart/v0_1-test-guide#status-at-a-glance) on your chosen model before the contest.
 2. **Low latency.** No operator wants to hit the TX button two beats behind the other station. Stay under 100 ms p99.
 3. **Bypass toggle on one key.** You'll want to A/B instantly when a station comes up.
 4. **Predictable level.** Soft limiter catches overshoots so your AGC / noise blanker upstream stays happy.
@@ -41,11 +48,13 @@ A typical late-night 40m SSB contest:
 ```bash
 rfwhisper denoise-live \
   --in "USB Audio CODEC" --out "CABLE Input" \
-  --model deepfilternet3 --profile ssb \
-  --telemetry ./contest-log.jsonl
+  2> contest-session.log
 ```
 
-`contest-log.jsonl` records rolling SNR gain, RTF, and latency per minute so you can analyze the session later.
+The once-a-second status line (latency, CPU load, dropouts) goes to stderr, so
+`2> contest-session.log` keeps a record of the session. Keep a finger near the
+keyboard: `b` + Enter flips to raw audio instantly if the denoiser ever smears a
+call. A structured telemetry log and an `ssb` profile are planned (v0.3).
 
 ## Spotting weak multipliers
 

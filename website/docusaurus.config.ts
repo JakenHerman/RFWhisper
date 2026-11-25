@@ -20,7 +20,7 @@ const GH_ORG = process.env.GH_ORG || 'jakenherman';
 const GH_REPO = process.env.GH_REPO || 'rfwhisper';
 const SITE_URL = process.env.DOCS_SITE_URL || 'https://rfwhisper.org';
 const BASE_URL = process.env.DOCS_BASE_URL || '/';
-const EDIT_BASE = `https://github.com/${GH_ORG}/${GH_REPO}/edit/main/website/`;
+const EDIT_BASE = `https://github.com/${GH_ORG}/${GH_REPO}/edit/master/website/`;
 
 const config: Config = {
   title: 'RFWhisper',
@@ -83,7 +83,7 @@ const config: Config = {
           lastVersion: 'current',
           versions: {
             current: {
-              label: 'Next (v0.1-dev)',
+              label: 'Next (v0.1 beta)',
               path: 'next',
               banner: 'unreleased',
             },
@@ -115,9 +115,9 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     announcementBar: {
-      id: 'alpha-banner',
+      id: 'beta-banner',
       content:
-        '📡 RFWhisper is in <b>alpha</b> — help us ship v0.1 by contributing <a href="/docs/next/contributing">testable improvements</a>. 73!',
+        '📡 RFWhisper <b>v0.1 beta</b> is out — real-time DeepFilterNet3 on your rig audio. <a href="/docs/next/quickstart/#6-help-test-the-beta">Help test it on the air</a>. 73!',
       backgroundColor: '#0d3b66',
       textColor: '#f4f6ff',
       isCloseable: true,
@@ -154,7 +154,7 @@ const config: Config = {
         {
           title: 'Docs',
           items: [
-            { label: 'Introduction', to: '/docs/next/intro' },
+            { label: 'Introduction', to: '/docs/next/' },
             { label: 'Quick Start', to: '/docs/next/quickstart/' },
             { label: 'Architecture', to: '/docs/next/architecture/' },
             { label: 'Roadmap', to: '/docs/next/roadmap' },
@@ -175,8 +175,8 @@ const config: Config = {
           items: [
             { label: 'GitHub', href: `https://github.com/${GH_ORG}/${GH_REPO}` },
             { label: 'Releases', href: `https://github.com/${GH_ORG}/${GH_REPO}/releases` },
-            { label: 'License (GPLv3)', href: `https://github.com/${GH_ORG}/${GH_REPO}/blob/main/LICENSE` },
-            { label: 'AGENTS.md', href: `https://github.com/${GH_ORG}/${GH_REPO}/blob/main/AGENTS.md` },
+            { label: 'License (GPLv3)', href: `https://github.com/${GH_ORG}/${GH_REPO}/blob/master/LICENSE` },
+            { label: 'AGENTS.md', href: `https://github.com/${GH_ORG}/${GH_REPO}/blob/master/AGENTS.md` },
           ],
         },
       ],

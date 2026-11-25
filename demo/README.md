@@ -52,7 +52,7 @@ licensing/consent rules are in [`samples/README.md`](../samples/README.md).
 `report.json` and the A5 gate give you real, honest numbers:
 
 - **RTF ≈ 0.017 — about 60× faster than real time** on a laptop CPU
-  (`cargo test --release --features dfn -- --ignored gate_rtf`).
+  (`cargo test --release -- --ignored gate_rtf`).
 - **SNR gain** vs the clean reference, when you provide one.
 
 ## Honest caveats (say them in the post)
@@ -60,8 +60,8 @@ licensing/consent rules are in [`samples/README.md`](../samples/README.md).
 - DeepFilterNet3 is a **speech** model. It shines on SSB/voice; it is *not* tuned
   for CW or FT8, where it can suppress the very tones you want (mode profiles are
   v0.3). Demo it on voice.
-- Without `--features dfn`, `deepfilternet3` falls back to a ~+1 dB spectral stub.
-  The script always builds the real backend.
+- A `--no-default-features` build falls back to a ~+1 dB spectral stub for
+  `deepfilternet3` (and warns). The default build, and this script, use the real backend.
 
 ## Note on the bundled sample
 

@@ -16,7 +16,7 @@ export default function Home(): JSX.Element {
   return (
     <Layout
       title={siteConfig.title}
-      description="Real-time, fully local AI denoising for amateur radio SDRs and rigs. DeepFilterNet3, GNU Radio, SoapySDR, ONNX Runtime. GPLv3.">
+      description="Real-time, fully local AI denoising for amateur radio rigs and SDRs. DeepFilterNet3 on your CPU, no cloud. GPLv3.">
       <div className="rfw-landing">
         <header className="rfw-landing__head">
           <p className="rfw-landing__kicker">Amateur radio · open source</p>
@@ -45,8 +45,8 @@ export default function Home(): JSX.Element {
           </div>
           <ul className="rfw-landing__badges" aria-label="Key facts">
             <li>GPLv3 — inspect everything</li>
-            <li>Target &lt; 100 ms latency (v0.1)</li>
-            <li>ONNX + SoapySDR + GNU Radio</li>
+            <li>~75 ms end to end (beta, measured)</li>
+            <li>DeepFilterNet3 on your CPU · no cloud</li>
           </ul>
         </header>
 

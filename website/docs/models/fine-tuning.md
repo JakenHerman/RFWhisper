@@ -13,7 +13,7 @@ Target outcome: **+2 dB extra effective SNR gain** vs the stock model on *your* 
 
 :::info v0.5 target
 
-The `rfwhisper train fine-tune` workflow ships in v0.5. If you're reading this pre-v0.5, the scripts live on a feature branch — see the [Fine-tuning milestone](../roadmap#v05--fine-tuning-tools--dataset-generator).
+The `rfwhisper train fine-tune` workflow ships in v0.5 and does not exist yet; the commands below describe the intended recipe. See the v0.5 milestone in the [roadmap](../roadmap).
 
 :::
 
@@ -100,7 +100,7 @@ rfwhisper train export --ckpt runs/my-qth-v1/best.pt \
 Use it:
 
 ```bash
-rfwhisper denoise-live --model my-qth-v1 --profile ssb
+rfwhisper denoise-live --model my-qth-v1            # (v0.5)
 ```
 
 ## Step 6 — (Optional) Share it

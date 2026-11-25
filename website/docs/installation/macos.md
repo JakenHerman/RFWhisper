@@ -2,12 +2,12 @@
 id: macos
 title: macOS
 sidebar_position: 3
-description: Install RFWhisper on macOS (Intel or Apple Silicon) with CoreML acceleration.
+description: Install RFWhisper on macOS (Intel or Apple Silicon).
 ---
 
 # Install on macOS
 
-Tested on macOS 13 (Ventura), 14 (Sonoma), and 15 (Sequoia) on Intel and Apple Silicon.
+Built and unit-tested in CI on Apple Silicon (macos-14). The beta has been run live on an Apple Silicon laptop; Intel Macs should work but are untested.
 
 ## 1. Install Homebrew (if needed)
 
@@ -18,7 +18,7 @@ Tested on macOS 13 (Ventura), 14 (Sonoma), and 15 (Sequoia) on Intel and Apple S
 ## 2. System dependencies
 
 ```bash
-brew install rustup git git-lfs ffmpeg pkg-config
+brew install rustup git
 rustup-init -y                # Rust stable toolchain
 brew install blackhole-2ch    # virtual audio cable
 ```
@@ -39,30 +39,27 @@ brew install gnuradio soapysdr
 3. Check both **BlackHole 2ch** and your **MacBook / external speakers**.
 4. Rename it to something obvious like *"RFW-Listen"*.
 
-Use **BlackHole 2ch** as RFWhisper's output device and as WSJT-X's input device.
+Use **BlackHole 2ch** as RFWhisper's output device (`--out "BlackHole"`) and as WSJT-X's input device. Full walkthrough: [Virtual audio cables](../hardware/virtual-cables).
 
 ## 4. RFWhisper
 
 ```bash
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
-cargo build --release
+cargo build --release        # a few minutes the first time: builds DeepFilterNet3 in
 sudo install -m755 target/release/rfwhisper /usr/local/bin/
-rfwhisper models fetch
-rfwhisper doctor
+rfwhisper --version          # rfwhisper 0.1.0-beta.1
+rfwhisper audio list         # your sound devices
 ```
 
-## 5. Apple Silicon: CoreML acceleration
+The DeepFilterNet3 model is bundled in the binary: there is nothing to download
+and no network access at runtime.
 
-When the ONNX (DFN3) backend is enabled, RFWhisper prefers the CoreML execution provider on Apple Silicon automatically:
+## 5. Performance
 
-```bash
-rfwhisper info providers
-# CoreMLExecutionProvider   (preferred on M-series)
-# CPUExecutionProvider      (fallback)
-```
-
-This typically halves inference latency vs CPU-only for DeepFilterNet3.
+The beta runs DeepFilterNet3 on the CPU (no CoreML needed). On an Apple Silicon
+laptop it uses about 5 % of one core, and `denoise-live` estimates about 75 ms end
+to end (30 ms of that is the model's own look-ahead).
 
 ## 6. Privacy & mic permissions
 
@@ -72,6 +69,6 @@ macOS will prompt for **microphone access** the first time you run `rfwhisper de
 
 ## Troubleshooting
 
-- **No sound through BlackHole** — verify the Multi-Output Device is selected as system output; check that input/output sample rates match (48 kHz is our default).
+- **No sound through BlackHole**: make sure RFWhisper's `--out` is BlackHole (or your Multi-Output Device) and the decoder's input is `BlackHole 2ch`. Sample rates don't need to match; RFWhisper resamples.
 - **`cargo: command not found` after install** — restart your shell or `source "$HOME/.cargo/env"`.
-- **Rosetta** — not required. Build natively on Apple Silicon; you'll keep CoreML eligibility.
+- **Rosetta**: not required. Build natively on Apple Silicon.

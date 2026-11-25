@@ -73,7 +73,7 @@ export default function FlowgraphRenderer({
         <span className="rfw-flowgraph__meta">
           {source ? (
             <a
-              href={`https://github.com/jakenherman/rfwhisper/blob/main/${source}`}
+              href={`https://github.com/jakenherman/rfwhisper/blob/master/${source}`}
               rel="noopener noreferrer"
               target="_blank">
               {source}

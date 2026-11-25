@@ -25,11 +25,13 @@ const MIRRORS = [
       'README.md': '/docs/next/',
       'ROADMAP.md': '/docs/next/roadmap',
       'LICENSE':
-        'https://github.com/jakenherman/rfwhisper/blob/main/LICENSE',
+        'https://github.com/jakenherman/rfwhisper/blob/master/LICENSE',
       'AGENTS.md':
-        'https://github.com/jakenherman/rfwhisper/blob/main/AGENTS.md',
+        'https://github.com/jakenherman/rfwhisper/blob/master/AGENTS.md',
       '.github/workflows/basic-ci.yml':
-        'https://github.com/jakenherman/rfwhisper/blob/main/.github/workflows/basic-ci.yml',
+        'https://github.com/jakenherman/rfwhisper/blob/master/.github/workflows/basic-ci.yml',
+      '.github/PULL_REQUEST_TEMPLATE.md':
+        'https://github.com/jakenherman/rfwhisper/blob/master/.github/PULL_REQUEST_TEMPLATE.md',
     },
   },
   {

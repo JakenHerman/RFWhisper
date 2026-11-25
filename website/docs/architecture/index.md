@@ -10,6 +10,16 @@ import FlowgraphRenderer from '@site/src/components/FlowgraphRenderer';
 
 # Architecture
 
+:::info As built in v0.1.0-beta.1
+This page describes the target architecture. In the beta: capture and playback
+use **cpal** (WASAPI / CoreAudio / ALSA) with lock-free SPSC rings and no
+allocation in the callbacks; the worker runs a stateful polyphase resampler →
+**DeepFilterNet3 via upstream's Rust `deep_filter` crate on `tract` (CPU)** →
+A/B mix → resampler. Not yet built: ONNX Runtime inference and execution
+providers for the shipped model, de-emphasis, the adaptive notch, gain match /
+limiter, mode profiles, realtime thread priority, and the GNU Radio leg.
+:::
+
 RFWhisper is a thin layer of glue on top of a small number of very good libraries.
 
 ```mermaid
@@ -26,7 +36,7 @@ flowchart LR
 ## Principles
 
 1. **Local-first.** No runtime network calls. Models fetched once (SHA-256 verified) and cached.
-2. **Latency is a feature.** p99 &lt; 100 ms v0.1, &lt; 50 ms v0.3. See [Latency Budget](./latency-budget).
+2. **Latency is a feature.** p99 &lt; 100 ms v0.1, &lt; 50 ms v0.3. See [Latency Budget](./latency-budget.md).
 3. **Preserve the signal.** Classical DSP handles what it's good at (resampling, notching, framing); the NN handles what it's good at (complex stationary + impulsive noise mixtures). Neither replaces the other.
 4. **Predictable.** Preallocated buffers, released GIL in hot paths, no hidden reallocations per frame.
 5. **Swappable.** Models are ONNX artefacts loaded at runtime; swap DFN3 ↔ RNNoise ↔ your own with a CLI flag or a GUI dropdown.
@@ -53,7 +63,7 @@ Every buffer is **preallocated at startup** to the worst-case frame size. Audio 
 
 Lives in `src/dsp/`. Windowing, STFT (via rustfft/realfft), polyphase resampling, pre/de-emphasis, overlap-add, and the adaptive narrowband notch (v0.3). VOLK kernels for the kernels that matter.
 
-→ [Signal Flow](./signal-flow) for the detailed block-by-block view.
+→ [Signal Flow](./signal-flow.md) for the detailed block-by-block view.
 
 ### Inference
 
@@ -62,9 +72,9 @@ Lives in `src/models/`. Thin ONNX Runtime wrapper:
 - Providers chosen in order: CoreML → DirectML → CUDA → XNNPACK → CPU.
 - Session options: `intra_op_num_threads` tuned per target, `inter_op_num_threads = 1`, `enable_cpu_mem_arena=True`.
 - I/O tensors are **pinned** and reused per frame.
-- FP32 + INT8 (QDQ) variants ship side-by-side; users pick via `--model-variant`.
+- *(planned)* FP32 + INT8 (QDQ) variants side by side, chosen with a `--model-variant` flag.
 
-→ [Models](../models/) for training, fine-tuning, and the model hub.
+→ [Models](../models/index.md) for training, fine-tuning, and the model hub.
 
 ### Real-time runtime
 
@@ -93,7 +103,7 @@ flowchart LR
 `}
 </FlowgraphRenderer>
 
-→ [Flowgraphs](./flowgraphs) has one per SDR.
+→ [Flowgraphs](./flowgraphs.md) has one per SDR.
 
 ## Where things live in the repo
 

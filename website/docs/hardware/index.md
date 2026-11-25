@@ -18,12 +18,12 @@ RFWhisper aims for **"works with anything SoapySDR supports"** plus common rig U
 
 ## Sections
 
-- [SDRs](./sdrs) — RTL-SDR, Airspy, HackRF, Pluto, SDRplay, LimeSDR, USRP, KiwiSDR
-- [Rigs](./rigs) — IC-7300, IC-705, FTDX10, K3, FT-991, Anan — rig USB CODEC routing
-- [Virtual audio cables](./virtual-cables) — VB-Cable / BlackHole / JACK / PipeWire / snd-aloop
+- [SDRs](./sdrs.md) — RTL-SDR, Airspy, HackRF, Pluto, SDRplay, LimeSDR, USRP, KiwiSDR
+- [Rigs](./rigs.md) — IC-7300, IC-705, FTDX10, K3, FT-991, Anan — rig USB CODEC routing
+- [Virtual audio cables](./virtual-cables.md) — VB-Cable / BlackHole / JACK / PipeWire / snd-aloop
 
 ## How we keep this honest
 
 - Every SDR in the matrix has a dedicated entry with the exact SoapySDR driver, tested modes, known quirks, and a link to a community on-air recording where possible.
 - The matrix is **auto-checked monthly** against GitHub Issues tagged `hardware-report` — if a report contradicts a matrix entry, we flag it.
-- Contributing a hardware test is a first-class contribution. See [CONTRIBUTING.md § Hardware Testing](https://github.com/jakenherman/rfwhisper/blob/main/CONTRIBUTING.md#hardware-testing).
+- Contributing a hardware test is a first-class contribution. See [CONTRIBUTING.md § Hardware Testing](https://github.com/jakenherman/rfwhisper/blob/master/CONTRIBUTING.md#hardware-testing).

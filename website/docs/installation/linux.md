@@ -7,7 +7,7 @@ description: Install RFWhisper on Ubuntu, Debian, Fedora, Arch, or any modern Li
 
 # Install on Linux
 
-Tested on Ubuntu 22.04 / 24.04, Debian 12, Fedora 39, and Arch (rolling).
+Built and unit-tested in CI on Ubuntu 22.04. Other modern distros should work the same way; reports welcome.
 
 ## 1. System dependencies
 
@@ -16,23 +16,21 @@ Tested on Ubuntu 22.04 / 24.04, Debian 12, Fedora 39, and Arch (rolling).
 ```bash
 sudo apt update
 sudo apt install -y \
-  git git-lfs \
-  libasound2-dev \
-  ffmpeg build-essential pkg-config
+  git libasound2-dev build-essential pkg-config
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # Rust toolchain
 ```
 
 ### Fedora
 
 ```bash
-sudo dnf install -y git git-lfs alsa-lib-devel ffmpeg gcc pkgconfig
+sudo dnf install -y git alsa-lib-devel gcc pkgconfig
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
 ### Arch
 
 ```bash
-sudo pacman -S --needed rustup git git-lfs alsa-lib ffmpeg base-devel
+sudo pacman -S --needed rustup git alsa-lib base-devel
 rustup default stable
 ```
 
@@ -47,44 +45,35 @@ sudo apt install -y gnuradio gr-soapy soapysdr-module-all soapysdr-tools
 
 ## 3. Audio routing (virtual cable)
 
-Pick one:
-
-- **PipeWire loopback** (modern desktop — Fedora 36+, Ubuntu 22.10+):
-  ```bash
-  pw-loopback --capture-props='media.class=Audio/Sink' \
-              --playback-props='media.class=Audio/Source' &
-  ```
-- **JACK** — run `qjackctl` and create a virtual input/output pair.
-- **`snd-aloop`** — `sudo modprobe snd-aloop` gives you two loopback cards.
-
-WSJT-X / fldigi will see the loopback as a regular input device.
+To feed WSJT-X / fldigi, create a PipeWire null sink or load `snd-aloop`. Step by
+step: [Virtual audio cables → Linux](../hardware/virtual-cables#linux--pipewire-ubuntu-2210-fedora-34-most-current-distros).
 
 ## 4. RFWhisper itself
 
 ```bash
 git clone https://github.com/jakenherman/rfwhisper.git
 cd rfwhisper
-cargo build --release
+cargo build --release        # a few minutes the first time: builds DeepFilterNet3 in
 sudo install -m755 target/release/rfwhisper /usr/local/bin/
-rfwhisper models fetch
-rfwhisper doctor
+rfwhisper --version          # rfwhisper 0.1.0-beta.1
+rfwhisper audio list         # your sound devices
 ```
 
-## 5. Realtime scheduling (recommended)
+The DeepFilterNet3 model is bundled in the binary: there is nothing to download
+and no network access at runtime.
 
-For best latency, give the audio/inference threads realtime priority:
+## 5. Lower latency (optional)
 
-```bash
-sudo groupadd -r realtime
-sudo usermod -aG realtime "$USER"
-sudo tee /etc/security/limits.d/99-realtime.conf <<'EOF'
-@realtime   -   rtprio   95
-@realtime   -   memlock  unlimited
-@realtime   -   nice     -19
-EOF
-```
+The beta does not request realtime scheduling itself. On a busy machine you can
+still help it:
 
-Log out and back in. RFWhisper will auto-detect and use `SCHED_FIFO` where available.
+- Use the `performance` CPU governor while operating.
+- With PipeWire, a smaller quantum lowers device latency:
+  `pw-metadata -n settings 0 clock.force-quantum 256` (reset with `0`).
+- If `underruns` climb in the status line, try `--blocksize 960`.
+
+Realtime thread priority (SCHED_FIFO) is planned; see the
+[latency budget](../architecture/latency-budget).
 
 ## 6. SDR USB permissions
 
@@ -104,6 +93,6 @@ See [Hardware → SDRs](../hardware/sdrs) for other devices.
 
 ## Troubleshooting
 
-- **`no default device` from `rfwhisper audio list`** — install `pipewire-pulse` or `pulseaudio-utils`, then reboot.
-- **Underruns / xruns** — confirm you're in the `realtime` group (`id | grep realtime`) and that `cpufreq` governor isn't `powersave` during use.
+- **`no default input device`**: pick one explicitly with `--in` (number or name from `rfwhisper audio list`), or install `pipewire-alsa` so ALSA's `default` routes through PipeWire.
+- **Underruns / xruns**: check the CPU governor isn't `powersave`, close heavy apps, and try `--blocksize 960`.
 - **Build fails on `alsa-sys`** — install the ALSA headers: `sudo apt install libasound2-dev` (or your distro's equivalent).

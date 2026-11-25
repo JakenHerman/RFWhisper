@@ -9,7 +9,7 @@ description: Frequently asked questions about RFWhisper — technical, operation
 
 ## Does RFWhisper send my audio anywhere?
 
-**No.** Core runs 100% locally. Models are fetched once (SHA-256 verified) and cached. No telemetry is ever sent without explicit, disclosed opt-in. This is a GPLv3 project — if that ever changes, fork it.
+**No.** Everything runs locally. The DeepFilterNet3 model is built into the binary, so nothing is downloaded at runtime either. The only network code is the optional `rfwhisper models fetch` command for future add-on models, which never runs unless you type it. No telemetry is ever sent. This is a GPLv3 project — if that ever changes, fork it.
 
 ## Will it decode encrypted transmissions?
 
@@ -21,11 +21,11 @@ Usually yes — turn your rig's NR **off** when using RFWhisper, or they'll figh
 
 ## Does it work for digital modes (FT8, FT4, PSK31, RTTY)?
 
-Yes, with the **non-regression gates** guaranteeing the decoder sees at least as many valid decodes on denoised audio as on raw. Start with the `ft8` profile and measure.
+**Not in the beta.** The beta's stock DeepFilterNet3 model is trained on speech, and it treats FT8/FT4/RTTY/PSK tones as noise. Run digital modes with `--model passthrough` for now. The goal for v0.1 final and the v0.3 `ft8` profile is a hard guarantee: a non-regression gate (A2) requires the decoder to see at least as many valid decodes on denoised audio as on raw, with zero false decodes.
 
 ## What about CW? Won't it soften my dits?
 
-**No.** This is the most protected signal type in the project. The `cw` profile uses shorter frames and lower NN aggressiveness; a CI gate (`cw_transient_test`) measures RMS in the first 5 ms of every keying onset and refuses to merge any model that drifts outside ±1 dB.
+**In the beta, don't use the speech model on CW:** it can remove the tone. Use `--model passthrough`. CW is the most protected signal type on the roadmap: the v0.3 `cw` profile uses shorter frames and lower aggressiveness, and the A3 gate measures RMS in the first 5 ms of every keying onset and refuses any model that drifts outside ±1 dB.
 
 ## Can I use this on a rig that doesn't have a USB CODEC?
 
@@ -37,7 +37,7 @@ Less than you'd think. FT8 is a 15-second mode with wide synchronization toleran
 
 ## CPU-only or GPU?
 
-CPU-only is the default and works great on Apple Silicon, any Ryzen 5000+, Intel 8th gen+, and Pi 5. GPU (CUDA / DirectML / CoreML via ONNX Runtime) helps on weaker hardware or when you're running several RFWhisper pipelines in parallel. Select providers with `rfwhisper info providers`.
+CPU only. The beta's DeepFilterNet3 runs on the CPU and uses about 5 % of one core on an Apple Silicon laptop (RTF ≈ 0.02), so a GPU isn't needed. GPU execution providers are on the roadmap for custom ONNX models.
 
 ## Can I run multiple RFWhisper pipelines in parallel?
 
@@ -61,26 +61,31 @@ Yes — GPLv3 permits commercial use. You must ship source for any modifications
 
 ## Why GPLv3 and not MIT / Apache?
 
-Because this is ham-community code and we want it to stay ham-community code. GPLv3 guarantees that any improvements flow back into the public commons. See [README § License](https://github.com/jakenherman/rfwhisper/blob/main/README.md#license) for the full reasoning.
+Because this is ham-community code and we want it to stay ham-community code. GPLv3 guarantees that any improvements flow back into the public commons. See [README § License](https://github.com/jakenherman/rfwhisper/blob/master/README.md#license) for the full reasoning.
 
 ## Will this work on Windows 10 / old Linux / older macOS?
 
-- **Windows 10 22H2** — officially supported.
-- **macOS 13+** — officially supported.
-- **Ubuntu 22.04+ / Debian 12 / Fedora 38+** — officially supported.
-- Older systems may work; we can't promise CI coverage.
+CI builds and tests on Ubuntu 22.04, macOS 14 (Apple Silicon), and Windows
+Server 2022 (the Windows 10/11 code base). The beta has been run live on macOS;
+Windows and Linux live-use reports are very welcome. Older systems may work, but
+we can't promise CI coverage.
 
 ## How do I benchmark my hardware?
 
 ```bash
-rfwhisper bench report --profile ssb --out report.html
+rfwhisper samples synth --preset ssb_powerline_s3_s7 --out bench.wav --seconds 30
+rfwhisper bench rtf bench.wav        # real-time factor (A5: < 0.5)
+rfwhisper bench latency bench.wav    # per-block processing + algorithmic latency
 ```
 
-Upload `report.html` to [Discussions → Benchmarks](https://github.com/jakenherman/rfwhisper/discussions/categories/benchmarks) — your numbers help us keep the reference targets honest.
+Then run `rfwhisper denoise-live` for a minute and copy the last status line.
+Post all three, with your CPU and OS, to
+[Discussions → Benchmarks](https://github.com/jakenherman/rfwhisper/discussions/categories/benchmarks):
+your numbers help us keep the reference targets honest.
 
 ## What if I find a bug?
 
-See [Reporting Bugs](https://github.com/jakenherman/rfwhisper/blob/main/CONTRIBUTING.md#reporting-bugs) in CONTRIBUTING.md. Please include `rfwhisper doctor` output and a short audio clip if the issue is audio-quality related.
+See [Reporting Bugs](https://github.com/jakenherman/rfwhisper/blob/master/CONTRIBUTING.md#reporting-bugs) in CONTRIBUTING.md. Please include `rfwhisper --version`, `rfwhisper audio list`, your OS and CPU, the last `denoise-live` status line, and a short before/after clip (`--record-raw` / `--record-denoised`) if the issue is audio-quality related.
 
 ## How do I contribute?
 
